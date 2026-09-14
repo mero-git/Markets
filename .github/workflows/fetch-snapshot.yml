@@ -1,0 +1,47 @@
+# Manual data-layer verification run.
+# Fetches every configured instrument from the real sources, prints the
+# verification table into the job log, and uploads the full snapshot JSON
+# as an artifact — so the numbers can be hand-checked against a terminal
+# before the generation layer ever sees them. Sends nothing.
+name: Fetch snapshot (verification)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install
+        run: pip install -e .
+
+      - name: Run tests
+        run: |
+          pip install pytest
+          python -m pytest tests/ -q
+
+      - name: Fetch snapshot
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+        run: |
+          python -m marketbrief fetch --json snapshot.json | tee table.txt
+
+      - name: Upload snapshot artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: snapshot
+          path: |
+            snapshot.json
+            table.txt
+          retention-days: 14
