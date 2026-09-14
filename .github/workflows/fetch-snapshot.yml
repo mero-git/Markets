@@ -7,6 +7,11 @@ name: Fetch snapshot (verification)
 
 on:
   workflow_dispatch:
+    inputs:
+      verbose:
+        description: Debug-level fetch logging
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -35,7 +40,7 @@ jobs:
         env:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         run: |
-          python -m marketbrief fetch --json snapshot.json | tee table.txt
+          python -m marketbrief ${{ inputs.verbose && '-v' || '' }} fetch --json snapshot.json | tee table.txt
 
       - name: Upload snapshot artifact
         uses: actions/upload-artifact@v4
