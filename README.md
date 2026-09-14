@@ -71,7 +71,12 @@ shows the verification table; the full JSON uploads as an artifact.
 
 - **UST intraday moves** come from CBOT micro yield futures (2YY/5YY/10Y/30Y),
   a cash-market proxy; official H.15 closes are fetched separately and both
-  are labeled. **Bund/JGB/Gilt/GoC** are official prior-close prints only.
+  are labeled. In practice the 2Y/5Y/30Y micros trade thinly and their Yahoo
+  prints are often days old — the staleness check then drops them, so a
+  reliable *live* overnight bp move is frequently available only for the 10Y.
+  Live 2s10s/5s30s changes therefore appear only when both legs are fresh;
+  otherwise the note falls back to prior-close spreads. A paid rates feed
+  (e.g. ICE/CME data) is the real fix. **Bund/JGB/Gilt/GoC** are official prior-close prints only.
 - **IG/HY OAS** (ICE BofA via FRED) publish with a 1–2 day lag — timestamped
   honestly, wider staleness window.
 - **No free source** for: IG/HY new-issue calendar and pricing, auction

@@ -131,7 +131,9 @@ sanity:
   move_index:      {min: 30,    max: 400,    max_change_pct: 80}
   yield_pct:       {min: -1.5,  max: 12,     max_change_bp: 80}
   real_yield_pct:  {min: -3,    max: 8,      max_change_bp: 80}
-  spread_bp:       {min: 20,    max: 3000,   max_change_bp: 150}
+  # spread_bp values are already in bp (scale: 100 applied at fetch), so a
+  # 1-unit change is 1bp — bp_per_unit 1, unlike %-quoted yield series.
+  spread_bp:       {min: 20,    max: 3000,   max_change_bp: 150, bp_per_unit: 1}
   crypto:          {min: 1,     max: 1000000, max_change_pct: 30}
 
 # Staleness: a point older than this is treated as failed, not passed through.

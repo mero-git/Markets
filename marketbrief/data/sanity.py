@@ -36,7 +36,7 @@ def check_value(quote: RawQuote, rule: SanityRule) -> CheckResult:
         if not (rule.min <= quote.prev_value <= rule.max):
             return CheckResult(False, f"prev level {quote.prev_value} outside [{rule.min}, {rule.max}]")
         if rule.max_change_bp is not None:
-            move_bp = abs(quote.value - quote.prev_value) * 100.0
+            move_bp = abs(quote.value - quote.prev_value) * rule.bp_per_unit
             if move_bp > rule.max_change_bp:
                 return CheckResult(False, f"move {move_bp:.1f}bp exceeds {rule.max_change_bp}bp")
         if rule.max_change_pct is not None and quote.prev_value != 0:

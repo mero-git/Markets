@@ -43,6 +43,9 @@ class SanityRule:
     max: float
     max_change_pct: float | None = None
     max_change_bp: float | None = None
+    # bp per unit of the raw value: 100 for %-denominated series, 1 for
+    # series already quoted in bp (credit OAS).
+    bp_per_unit: float = 100.0
 
 
 @dataclass(frozen=True, slots=True)

@@ -13,6 +13,7 @@ NOW = datetime(2026, 9, 14, 10, 30, tzinfo=timezone.utc)
 EQUITY_RULE = SanityRule(min=50, max=200000, max_change_pct=12)
 YIELD_RULE = SanityRule(min=-1.5, max=12, max_change_bp=80)
 VOL_RULE = SanityRule(min=5, max=200, max_change_pct=200)
+OAS_RULE = SanityRule(min=20, max=3000, max_change_bp=150, bp_per_unit=1)
 
 
 def q(value, prev=None, *, asof=NOW, asof_date=None) -> RawQuote:
@@ -44,6 +45,14 @@ class TestValueChecks:
 
     def test_plausible_yield_move_passes(self):
         assert check_value(q(4.32, 4.25), YIELD_RULE).ok
+
+    def test_oas_already_in_bp_small_move_passes(self):
+        # Regression: a 5bp OAS move (265 -> 270, values already in bp) must
+        # not be read as 500bp via the %->bp conversion for yield series.
+        assert check_value(q(265.0, 270.0), OAS_RULE).ok
+
+    def test_oas_genuine_blowout_rejected(self):
+        assert not check_value(q(450.0, 270.0), OAS_RULE).ok
 
     def test_deeply_negative_yield_rejected(self):
         assert not check_value(q(-4.0, -0.5), YIELD_RULE).ok

@@ -38,6 +38,8 @@ def _last_two(obs: list[tuple[str, float]], what: str) -> RawQuote:
 
 def fetch_bund(session: requests.Session, series: str) -> RawQuote:
     """Daily Bund yield from the Bundesbank REST API (CSV flavour)."""
+    # The REST path is /data/BBSIS/<key> where <key> excludes the dataset name.
+    series = series.removeprefix("BBSIS.")
     resp = session.get(
         BUNDESBANK_URL.format(series=series),
         params={"lastNObservations": 10, "format": "csv", "lang": "en"},
