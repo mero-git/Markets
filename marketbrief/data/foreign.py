@@ -47,15 +47,24 @@ def fetch_bund(session: requests.Session, series: str) -> RawQuote:
         timeout=DEFAULT_TIMEOUT,
     )
     resp.raise_for_status()
+    # The API serves SDMX-CSV (comma-delimited, TIME_PERIOD mid-row) or a
+    # legacy semicolon layout depending on flags — scan each row for the
+    # first ISO date and take the first numeric cell after it.
     obs: list[tuple[str, float]] = []
-    for row in csv.reader(io.StringIO(resp.text), delimiter=";"):
-        if not row or not _ISO_DATE.match(row[0].strip()):
-            continue
-        raw = row[1].strip().replace(",", ".") if len(row) > 1 else ""
-        try:
-            obs.append((row[0].strip(), float(raw)))
-        except ValueError:
-            continue
+    for delimiter in (",", ";"):
+        for row in csv.reader(io.StringIO(resp.text), delimiter=delimiter):
+            cells = [c.strip() for c in row]
+            date_idx = next((i for i, c in enumerate(cells) if _ISO_DATE.match(c)), None)
+            if date_idx is None:
+                continue
+            for cell in cells[date_idx + 1:]:
+                try:
+                    obs.append((cells[date_idx], float(cell.replace(",", "."))))
+                    break
+                except ValueError:
+                    continue
+        if obs:
+            break
     return _last_two(obs, f"bundesbank {series}")
 
 
