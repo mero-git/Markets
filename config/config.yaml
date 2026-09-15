@@ -17,9 +17,28 @@ delivery:
 
 run:
   # self | test | full — promoted manually. Default stays self until trusted.
+  # Override per run with env RECIPIENT_TIER (repo variable in Actions).
   recipient_tier: self
-  # Model used by the generation layer; overridable per run via env MODEL.
-  model: claude-sonnet-5
+  # Model used by the generation layer; overridable per run via env MODEL
+  # (e.g. claude-sonnet-5 to trade quality for cost).
+  model: claude-opus-5
+
+generation:
+  # Thinking effort for the writing pass: low | medium | high | xhigh | max
+  effort: high
+  max_tokens: 8000
+
+news:
+  # Hard cap on material news items — brevity is credibility.
+  max_items: 5
+  # Cap on web searches per run (cost control).
+  max_searches: 8
+
+email:
+  subject_prefix: "Blackleaf Capital News Update"
+  # Identification shown in the footer (CASL / CAN-SPAM). Fill these in.
+  sender_name: "Mero Obuwoma"
+  sender_affiliation: "Independent market note — personal student publication, not investment advice"
 
 # ----------------------------------------------------------------------------
 # Instruments. Each entry:

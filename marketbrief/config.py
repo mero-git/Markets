@@ -68,10 +68,32 @@ class RunConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class GenerationConfig:
+    effort: str
+    max_tokens: int
+
+
+@dataclass(frozen=True, slots=True)
+class NewsConfig:
+    max_items: int
+    max_searches: int
+
+
+@dataclass(frozen=True, slots=True)
+class EmailConfig:
+    subject_prefix: str
+    sender_name: str
+    sender_affiliation: str
+
+
+@dataclass(frozen=True, slots=True)
 class Config:
     timezone: str
     delivery: DeliveryConfig
     run: RunConfig
+    generation: GenerationConfig
+    news: NewsConfig
+    email: EmailConfig
     instruments: tuple[InstrumentSpec, ...]
     derived: tuple[DerivedSpec, ...]
     sanity: dict[str, SanityRule]
@@ -105,6 +127,9 @@ def load_config(path: Path | str = DEFAULT_CONFIG_PATH) -> Config:
         timezone=raw["timezone"],
         delivery=DeliveryConfig(**raw["delivery"]),
         run=RunConfig(**raw["run"]),
+        generation=GenerationConfig(**raw["generation"]),
+        news=NewsConfig(**raw["news"]),
+        email=EmailConfig(**raw["email"]),
         instruments=instruments,
         derived=derived,
         sanity={k: SanityRule(**v) for k, v in raw["sanity"].items()},

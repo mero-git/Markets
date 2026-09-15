@@ -64,23 +64,24 @@ def seconds_until_delivery(cfg: Config, now_utc: datetime) -> float:
     return (target - now_utc).total_seconds()
 
 
-def should_run(cfg: Config, now_utc: datetime, *, max_early_hours: float = 3.0,
+def should_run(cfg: Config, now_utc: datetime, *, max_early_minutes: float = 75.0,
                max_late_minutes: float = 25.0) -> tuple[bool, str]:
     """Decide whether this invocation should proceed toward a send.
 
-    Designed for a scheduler (GitHub Actions cron) that fires early and can
-    fire more than once per day at different UTC offsets: the invocation in
-    the window [send - max_early_hours, send + max_late_minutes] proceeds
-    (sleeping until the send time); anything outside exits cleanly. The
-    late bound keeps a badly delayed runner from sending a mid-morning note
-    that would be worse than none.
+    Designed for two GitHub Actions crons an hour apart (so one lands
+    before 6:30 ET under both EST and EDT): the invocation inside
+    [send - max_early_minutes, send + max_late_minutes] proceeds (sleeping
+    until the send time); anything outside exits cleanly. The 75-minute
+    early bound means exactly one of the two crons qualifies in either DST
+    regime, and the late bound keeps a badly delayed runner from sending a
+    mid-morning note that would be worse than none.
     """
     d = local_trading_date(cfg, now_utc)
     if not is_send_day(cfg, d):
         return False, f"{d} is not a trading day"
     delta = seconds_until_delivery(cfg, now_utc)
-    if delta > max_early_hours * 3600:
-        return False, f"too early: {delta / 3600:.1f}h before send time"
+    if delta > max_early_minutes * 60:
+        return False, f"too early: {delta / 60:.0f}min before send time"
     if delta < -max_late_minutes * 60:
         return False, f"too late: {-delta / 60:.0f}min past send time — skipping rather than sending late"
     return True, f"in window: {delta / 60:.0f}min before send time"

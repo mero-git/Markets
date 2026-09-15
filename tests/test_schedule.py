@@ -59,8 +59,8 @@ class TestHolidays:
 
 class TestRunWindow:
     def test_in_window_runs(self, cfg):
-        # 09:00 UTC on an EDT Monday = 05:00 ET, 90min before send.
-        now = datetime(2026, 9, 14, 9, 0, tzinfo=timezone.utc)
+        # 09:45 UTC on an EDT Monday = 05:45 ET, 45min before the 10:30 UTC send.
+        now = datetime(2026, 9, 14, 9, 45, tzinfo=timezone.utc)
         ok, why = should_run(cfg, now)
         assert ok, why
 
@@ -80,10 +80,12 @@ class TestRunWindow:
         ok, why = should_run(cfg, now)
         assert not ok and "not a trading day" in why
 
-    def test_dst_shift_keeps_window_honest(self, cfg):
-        # 10:00 UTC is in-window during EDT (06:00 ET) but 05:00 ET during EST —
-        # still in the 3h early window, so both crons can fire and only the
-        # sleep-to-target differs. 13:00 UTC EST (08:00 ET) must not run.
-        assert should_run(cfg, datetime(2026, 7, 14, 10, 0, tzinfo=timezone.utc))[0]
-        assert should_run(cfg, datetime(2026, 1, 14, 10, 0, tzinfo=timezone.utc))[0]
+    def test_exactly_one_cron_qualifies_each_season(self, cfg):
+        # Crons fire 09:45 and 10:45 UTC. Summer (EDT, send 10:30 UTC): the
+        # 09:45 firing is 45min early (runs); 10:45 is 15min late (still ok
+        # as a retry). Winter (EST, send 11:30 UTC): 09:45 is 105min early
+        # (exits); 10:45 is 45min early (runs). 13:00 UTC EST never runs.
+        assert should_run(cfg, datetime(2026, 7, 14, 9, 45, tzinfo=timezone.utc))[0]
+        assert not should_run(cfg, datetime(2026, 1, 14, 9, 45, tzinfo=timezone.utc))[0]
+        assert should_run(cfg, datetime(2026, 1, 14, 10, 45, tzinfo=timezone.utc))[0]
         assert not should_run(cfg, datetime(2026, 1, 14, 13, 0, tzinfo=timezone.utc))[0]

@@ -142,6 +142,41 @@ class MarketSnapshot:
                 return p
         return None
 
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "MarketSnapshot":
+        def dt(v: str | None) -> datetime | None:
+            return datetime.fromisoformat(v) if v else None
+
+        def point(p: dict[str, Any]) -> DataPoint:
+            p = dict(p)
+            p["freshness"] = Freshness(p["freshness"])
+            p["fetched_at"] = dt(p["fetched_at"])
+            p["asof"] = dt(p.get("asof"))
+            return DataPoint(**p)
+
+        def failure(f: dict[str, Any]) -> FetchFailure:
+            f = dict(f)
+            f["fetched_at"] = dt(f["fetched_at"])
+            return FetchFailure(**f)
+
+        def rejection(r: dict[str, Any]) -> Rejection:
+            r = dict(r)
+            r["fetched_at"] = dt(r["fetched_at"])
+            return Rejection(**r)
+
+        return cls(
+            generated_at=dt(d["generated_at"]),
+            trading_date=d["trading_date"],
+            nyse_open_today=d["nyse_open_today"],
+            sifma_open_today=d.get("sifma_open_today"),
+            points=[point(p) for p in d["points"]],
+            auctions_today=[Auction(**a) for a in d["auctions_today"]],
+            auction_results=[Auction(**a) for a in d["auction_results"]],
+            failures=[failure(f) for f in d["failures"]],
+            rejections=[rejection(r) for r in d["rejections"]],
+            health=HealthReport(**d["health"]),
+        )
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "generated_at": self.generated_at.isoformat(),

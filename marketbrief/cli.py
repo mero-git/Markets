@@ -25,6 +25,35 @@ def _cmd_fetch(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_run(args: argparse.Namespace) -> int:
+    from .runner import run
+
+    cfg = load_config(args.config)
+    result = run(cfg, args.mode)
+    print(json.dumps(result.to_dict(), indent=2))
+    return 0 if result.outcome != "failed" else 1
+
+
+def _cmd_render(args: argparse.Namespace) -> int:
+    """Re-render the email offline from a saved snapshot.json (no network)."""
+    from .deliver.email_html import render_email
+    from .generate.generator import placeholder_narrative
+    from .models import MarketSnapshot
+    from .news.search import NewsBundle
+
+    cfg = load_config(args.config)
+    snap = MarketSnapshot.from_dict(json.loads(Path(args.snapshot).read_text()))
+    subject, html, text = render_email(
+        cfg, snap, placeholder_narrative(),
+        NewsBundle(available=False, note="offline render"), tier="self")
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "email.html").write_text(html)
+    (out / "email.txt").write_text(f"Subject: {subject}\n\n{text}")
+    print(f"rendered {out}/email.html and {out}/email.txt")
+    return 0
+
+
 def _cmd_schedule(args: argparse.Namespace) -> int:
     from datetime import date
 
@@ -47,6 +76,17 @@ def main(argv: list[str] | None = None) -> int:
     p_fetch.add_argument("--strict", action="store_true",
                          help="exit non-zero if the run would be degraded")
     p_fetch.set_defaults(func=_cmd_fetch)
+
+    p_run = sub.add_parser("run", help="full pipeline: fetch, news, generate, verify, deliver")
+    p_run.add_argument("--mode", choices=["send", "preview", "dry-run"], default="dry-run",
+                       help="send: scheduled staged send; preview: email owner only now; "
+                            "dry-run: render to out/, send nothing")
+    p_run.set_defaults(func=_cmd_run)
+
+    p_render = sub.add_parser("render", help="re-render the email offline from a snapshot.json")
+    p_render.add_argument("--snapshot", default="out/snapshot.json")
+    p_render.add_argument("--out", default="out")
+    p_render.set_defaults(func=_cmd_render)
 
     p_sched = sub.add_parser("schedule", help="print the next send times in UTC (DST check)")
     p_sched.add_argument("-n", type=int, default=5)
