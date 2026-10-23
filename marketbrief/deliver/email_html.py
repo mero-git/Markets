@@ -359,13 +359,19 @@ def render_email(cfg: Config, snapshot: MarketSnapshot, narrative: BriefNarrativ
         text.append("")
 
     # --- Footer ---
-    contact = os.environ.get("EMAIL_REPLY_TO") or os.environ.get("OWNER_EMAIL", "")
+    contact = (os.environ.get("EMAIL_REPLY_TO")
+               or os.environ.get("OWNER_EMAIL", "")).strip()
+    removal = (
+        f"To be removed from this list, reply \u201cunsubscribe\u201d to {contact}."
+        if contact else
+        "To be removed from this list, reply to this email with "
+        "\u201cunsubscribe\u201d.")
     footer = (
         f"{cfg.email.title}. {cfg.email.sender_name}. {cfg.email.sender_descriptor} "
         "Weekly moves are close to close against the prior Friday. Sources: FRED, "
         "Bank of Canada, TreasuryDirect, Yahoo Finance. Credit spreads publish with "
         "a lag and are the latest available print. "
-        f"To be removed from this list, reply “unsubscribe” to {contact}.")
+        + removal)
     parts.append(
         f'<tr><td style="{_PAD}padding-top:26px;padding-bottom:28px;">'
         f'<div style="height:1px;background-color:{RULE};font-size:0;line-height:0;'
