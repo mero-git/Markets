@@ -82,7 +82,7 @@ def _already_sent_today(today: date) -> bool:
         return False
     try:
         resp = requests.get(
-            f"https://api.github.com/repos/{repo}/actions/workflows/daily-brief.yml/runs",
+            f"https://api.github.com/repos/{repo}/actions/workflows/friday-note.yml/runs",
             params={"event": "schedule", "status": "success",
                     "created": f">={today.isoformat()}T00:00:00Z", "per_page": 10},
             headers={"Authorization": f"Bearer {token}",

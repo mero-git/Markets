@@ -31,13 +31,36 @@ class SourceError(Exception):
 
 @dataclass(slots=True)
 class RawQuote:
-    """Unvalidated value pair straight from a source."""
+    """Unvalidated values straight from a source.
+
+    ``prev_*`` is the previous observation (1-day move); ``week_*`` is the
+    observation one week back (the headline move in a weekly note).
+    """
 
     value: float
     prev_value: float | None
     asof: datetime | None            # UTC timestamp when the source provides one
     asof_date: str | None            # ISO date for daily official series
     prev_asof_date: str | None = None
+    week_value: float | None = None
+    week_asof_date: str | None = None
+
+
+def pick_week_ago(obs: list[tuple[str, float]], latest_date: str,
+                  lookback_days: int = 6) -> tuple[str | None, float | None]:
+    """The last observation on or before ``latest_date`` minus ``lookback_days``.
+
+    With a Friday run and a Thursday latest print, 6 days back lands on the
+    prior Friday, so the weekly move is measured close-to-close over one
+    trading week.
+    """
+    from datetime import date, timedelta
+
+    cutoff = date.fromisoformat(latest_date) - timedelta(days=lookback_days)
+    earlier = [(d, v) for d, v in obs if date.fromisoformat(d) <= cutoff]
+    if not earlier:
+        return None, None
+    return earlier[-1]
 
 
 def utc_now() -> datetime:

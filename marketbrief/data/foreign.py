@@ -18,7 +18,7 @@ from datetime import date, datetime, timedelta
 
 import requests
 
-from .base import DEFAULT_TIMEOUT, RawQuote
+from .base import DEFAULT_TIMEOUT, RawQuote, pick_week_ago
 
 BUNDESBANK_URL = "https://api.statistiken.bundesbank.de/rest/data/BBSIS/{series}"
 MOF_JGB_URL = "https://www.mof.go.jp/english/policy/jgbs/reference/interest_rate/jgbcme.csv"
@@ -33,7 +33,9 @@ def _last_two(obs: list[tuple[str, float]], what: str) -> RawQuote:
         raise ValueError(f"{what}: no observations parsed")
     last_d, last_v = obs[-1]
     prev_d, prev_v = (obs[-2] if len(obs) >= 2 else (None, None))
-    return RawQuote(value=last_v, prev_value=prev_v, asof=None, asof_date=last_d, prev_asof_date=prev_d)
+    week_d, week_v = pick_week_ago(obs, last_d)
+    return RawQuote(value=last_v, prev_value=prev_v, asof=None, asof_date=last_d,
+                    prev_asof_date=prev_d, week_value=week_v, week_asof_date=week_d)
 
 
 def fetch_bund(session: requests.Session, series: str) -> RawQuote:

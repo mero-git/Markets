@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import requests
 
-from .base import DEFAULT_TIMEOUT, RawQuote
+from .base import DEFAULT_TIMEOUT, RawQuote, pick_week_ago
 
 VALET_URL = "https://www.bankofcanada.ca/valet/observations/{series}/json"
 
 
 def fetch_series(session: requests.Session, series: str) -> RawQuote:
-    resp = session.get(VALET_URL.format(series=series), params={"recent": 10}, timeout=DEFAULT_TIMEOUT)
+    resp = session.get(VALET_URL.format(series=series), params={"recent": 25}, timeout=DEFAULT_TIMEOUT)
     resp.raise_for_status()
     rows = resp.json().get("observations", [])
     obs: list[tuple[str, float]] = []
@@ -25,4 +25,6 @@ def fetch_series(session: requests.Session, series: str) -> RawQuote:
         raise ValueError(f"BoC Valet {series}: no observations")
     last_d, last_v = obs[-1]
     prev_d, prev_v = (obs[-2] if len(obs) >= 2 else (None, None))
-    return RawQuote(value=last_v, prev_value=prev_v, asof=None, asof_date=last_d, prev_asof_date=prev_d)
+    week_d, week_v = pick_week_ago(obs, last_d)
+    return RawQuote(value=last_v, prev_value=prev_v, asof=None, asof_date=last_d,
+                    prev_asof_date=prev_d, week_value=week_v, week_asof_date=week_d)

@@ -37,8 +37,14 @@ def is_calendar_open(calendar_name: str, d: date) -> bool:
 
 
 def is_send_day(cfg: Config, d: date) -> bool:
-    """Weekday and the equity market is open (holiday-aware)."""
-    if d.weekday() >= 5:
+    """A configured send weekday on which the market is open (holiday-aware).
+
+    The note is weekly, so send_weekdays is [4] (Friday). When Friday is a
+    market holiday the week's note is skipped rather than shifted: a recap
+    that arrives on the wrong day reads as an error, and the data it would
+    carry is a day short.
+    """
+    if d.weekday() not in cfg.delivery.send_weekdays:
         return False
     return is_calendar_open(cfg.delivery.holiday_calendar, d)
 

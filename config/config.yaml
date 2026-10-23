@@ -1,7 +1,7 @@
 # ============================================================================
-# Blackleaf Capital daily market brief — single source of configuration.
-# Tickers, thresholds, schedule, model choice, and delivery settings all live
-# here. Recipients live in secrets (env), never here — see README.
+# Friday Markets Note - single source of configuration.
+# Canadian rates and credit first, US as read-across, everything else brief.
+# Recipients live in secrets (env), never here. See README.
 # ============================================================================
 
 timezone: America/New_York
@@ -9,169 +9,139 @@ timezone: America/New_York
 delivery:
   # Local ET wall-clock send time; DST handled via zoneinfo, never a UTC offset.
   send_time_local: "06:30"
-  # Skip days the NYSE is closed. SIFMA (US bond market) status is also
-  # computed and surfaced in the payload so the note can say "bond market
-  # closed today" on days like Columbus Day.
+  # Weekly note: Fridays only. 0=Mon .. 4=Fri.
+  send_weekdays: [4]
   holiday_calendar: NYSE
   bond_calendar: SIFMAUS
 
 run:
-  # self | test | full — promoted manually. Default stays self until trusted.
-  # Override per run with env RECIPIENT_TIER (repo variable in Actions).
+  # self | test | full. Promoted manually. Default stays self until trusted.
+  # Override per run with env RECIPIENT_TIER.
   recipient_tier: self
-  # Model used by the generation layer; overridable per run via env MODEL
-  # (e.g. claude-sonnet-5 to trade quality for cost).
+  # Overridable per run via env MODEL.
   model: claude-opus-5
 
 generation:
-  # Thinking effort for the writing pass: low | medium | high | xhigh | max
   effort: high
   max_tokens: 8000
 
 news:
-  # Hard cap on material news items — brevity is credibility.
-  max_items: 5
-  # Cap on web searches per run (cost control).
+  # Hard cap. Brevity is credibility.
+  max_items: 4
   max_searches: 8
 
 email:
-  subject_prefix: "Blackleaf Capital News Update"
-  # Identification shown in the footer (CASL / CAN-SPAM). Fill these in.
+  title: "Friday Markets Note"
   sender_name: "Mero Obuwoma"
-  sender_affiliation: "Independent market note — personal student publication, not investment advice"
+  sender_descriptor: "Weekly markets recap. Personal publication, not investment advice."
 
 # ----------------------------------------------------------------------------
-# Instruments. Each entry:
-#   key:      stable identifier used everywhere downstream
-#   label:    human label used in output
-#   section:  grouping for the brief
-#   source:   yahoo | fred | boc | mof_jgb | bundesbank | boe
-#   symbol:   ticker / series id at the source
-#   cls:      sanity-check class (see sanity: below)
-#   freshness: live | daily   (drives staleness thresholds and labeling)
-#   unit:     display unit; yields in %, credit spreads converted to bp
-#   scale:    optional multiplier applied to raw value (e.g. OAS % -> bp)
-#   note:     honesty label carried into the payload
+# Instruments.
+#   key / label / section / source / symbol
+#   cls:        sanity-check class
+#   freshness:  live | daily
+#   unit:       display unit; credit spreads scaled to bp
+#   scale:      optional multiplier on the raw value
+#   note:       honesty label carried into the payload
+#
+# Sections, in the order the note reads:
+#   ca_rates, ca_credit, us_rates, credit, fx, commodities, equities,
+#   volatility, crypto
 # ----------------------------------------------------------------------------
 instruments:
-  # --- US Treasury curve: official prior close (FRED H.15) ---
-  - {key: ust_2y,  label: "UST 2Y (prior close)",  section: curve, source: fred, symbol: DGS2,  cls: yield_pct, freshness: daily, unit: "%", note: "Official H.15 close; publishes next day"}
-  - {key: ust_5y,  label: "UST 5Y (prior close)",  section: curve, source: fred, symbol: DGS5,  cls: yield_pct, freshness: daily, unit: "%", note: "Official H.15 close; publishes next day"}
-  - {key: ust_10y, label: "UST 10Y (prior close)", section: curve, source: fred, symbol: DGS10, cls: yield_pct, freshness: daily, unit: "%", note: "Official H.15 close; publishes next day"}
-  - {key: ust_30y, label: "UST 30Y (prior close)", section: curve, source: fred, symbol: DGS30, cls: yield_pct, freshness: daily, unit: "%", note: "Official H.15 close; publishes next day"}
 
-  # --- US yield futures (CBOT micro yield futures): the live overnight move ---
-  - {key: ust_2y_fut,  label: "2Y yield fut",  section: curve, source: yahoo, symbol: "2YY=F", cls: yield_pct, freshness: live, unit: "%", note: "CBOT yield future, cash proxy"}
-  - {key: ust_5y_fut,  label: "5Y yield fut",  section: curve, source: yahoo, symbol: "5YY=F", cls: yield_pct, freshness: live, unit: "%", note: "CBOT yield future, cash proxy"}
-  - {key: ust_10y_fut, label: "10Y yield fut", section: curve, source: yahoo, symbol: "10Y=F", cls: yield_pct, freshness: live, unit: "%", note: "CBOT yield future, cash proxy"}
-  - {key: ust_30y_fut, label: "30Y yield fut", section: curve, source: yahoo, symbol: "30Y=F", cls: yield_pct, freshness: live, unit: "%", note: "CBOT yield future, cash proxy"}
+  # --- Canada: the anchor section -------------------------------------------
+  - {key: boc_target, label: "BoC target rate", section: ca_rates, source: boc, symbol: V39079, cls: policy_rate, freshness: daily, unit: "%", note: "Bank of Canada target for the overnight rate"}
+  - {key: corra, label: "CORRA", section: ca_rates, source: boc, symbol: AVG.INTWO, cls: policy_rate, freshness: daily, unit: "%", note: "Canadian Overnight Repo Rate Average"}
+  - {key: goc_2y, label: "GoC 2Y", section: ca_rates, source: boc, symbol: BD.CDN.2YR.DQ.YLD, cls: yield_pct, freshness: daily, unit: "%", note: "BoC benchmark close"}
+  - {key: goc_5y, label: "GoC 5Y", section: ca_rates, source: boc, symbol: BD.CDN.5YR.DQ.YLD, cls: yield_pct, freshness: daily, unit: "%", note: "BoC benchmark close"}
+  - {key: goc_10y, label: "GoC 10Y", section: ca_rates, source: boc, symbol: BD.CDN.10YR.DQ.YLD, cls: yield_pct, freshness: daily, unit: "%", note: "BoC benchmark close"}
+  - {key: goc_30y, label: "GoC long", section: ca_rates, source: boc, symbol: BD.CDN.LONG.DQ.YLD, cls: yield_pct, freshness: daily, unit: "%", note: "BoC long-term benchmark close"}
 
-  # --- Real rates / inflation (FRED, prior close) ---
-  - {key: tips_10y_real, label: "10Y TIPS real yield", section: curve, source: fred, symbol: DFII10, cls: real_yield_pct, freshness: daily, unit: "%", note: "Prior close"}
-  - {key: breakeven_10y, label: "10Y breakeven",       section: curve, source: fred, symbol: T10YIE, cls: real_yield_pct, freshness: daily, unit: "%", note: "Prior close"}
+  # --- US rates: the read-across for a CAD book ------------------------------
+  - {key: ust_2y,  label: "UST 2Y",  section: us_rates, source: fred, symbol: DGS2,  cls: yield_pct, freshness: daily, unit: "%", note: "H.15 close"}
+  - {key: ust_5y,  label: "UST 5Y",  section: us_rates, source: fred, symbol: DGS5,  cls: yield_pct, freshness: daily, unit: "%", note: "H.15 close"}
+  - {key: ust_10y, label: "UST 10Y", section: us_rates, source: fred, symbol: DGS10, cls: yield_pct, freshness: daily, unit: "%", note: "H.15 close"}
+  - {key: ust_30y, label: "UST 30Y", section: us_rates, source: fred, symbol: DGS30, cls: yield_pct, freshness: daily, unit: "%", note: "H.15 close"}
+  - {key: breakeven_10y, label: "10Y breakeven", section: us_rates, source: fred, symbol: T10YIE, cls: real_yield_pct, freshness: daily, unit: "%", note: "H.15-derived close"}
 
-  # --- Global 10Y govvies (official daily sources, prior close) ---
-  - {key: bund_10y, label: "Bund 10Y (prior close)", section: curve, source: bundesbank, symbol: "BBSIS.D.I.ZAR.ZI.EUR.S1311.B.A604.R10XX.R.A.A._Z._Z.A", cls: yield_pct, freshness: daily, unit: "%", note: "Bundesbank daily yield, prior close"}
-  - {key: jgb_10y,  label: "JGB 10Y (prior close)",  section: curve, source: mof_jgb, symbol: "10Y", cls: yield_pct, freshness: daily, unit: "%", note: "Japan MoF daily yield, prior close"}
-  - {key: gilt_10y, label: "Gilt 10Y (prior close)", section: curve, source: boe, symbol: IUDMNZC, cls: yield_pct, freshness: daily, unit: "%", note: "BoE 10Y nominal zero-coupon, prior close; publishes with a lag"}
+  # --- Credit. No free Canadian OAS exists; US indices are the read-across. ---
+  - {key: ig_oas, label: "US IG OAS", section: credit, source: fred, symbol: BAMLC0A0CM,   cls: spread_bp, freshness: daily, unit: bp, scale: 100, staleness_hours: 200, note: "ICE BofA index, publishes with a 1-2 day lag"}
+  - {key: hy_oas, label: "US HY OAS", section: credit, source: fred, symbol: BAMLH0A0HYM2, cls: spread_bp, freshness: daily, unit: bp, scale: 100, staleness_hours: 200, note: "ICE BofA index, publishes with a 1-2 day lag"}
 
-  # --- Canada rates (Bank of Canada Valet, prior close) ---
-  - {key: goc_2y,  label: "GoC 2Y (prior close)",  section: canada, source: boc, symbol: BD.CDN.2YR.DQ.YLD,  cls: yield_pct, freshness: daily, unit: "%", note: "BoC benchmark, prior close"}
-  - {key: goc_10y, label: "GoC 10Y (prior close)", section: canada, source: boc, symbol: BD.CDN.10YR.DQ.YLD, cls: yield_pct, freshness: daily, unit: "%", note: "BoC benchmark, prior close"}
-
-  # --- Credit (ICE BofA OAS via FRED; publishes with a lag — label honestly) ---
-  - {key: ig_oas, label: "US IG OAS", section: credit, source: fred, symbol: BAMLC0A0CM,    cls: spread_bp, freshness: daily, unit: bp, scale: 100, staleness_hours: 200, note: "ICE BofA index, publishes with ~1-2 day lag"}
-  - {key: hy_oas, label: "US HY OAS", section: credit, source: fred, symbol: BAMLH0A0HYM2, cls: spread_bp, freshness: daily, unit: bp, scale: 100, staleness_hours: 200, note: "ICE BofA index, publishes with ~1-2 day lag"}
-
-  # --- Equity futures (live overnight) ---
-  - {key: spx_fut,    label: "S&P 500 fut",  section: equity_futures, source: yahoo, symbol: "ES=F", cls: equity, freshness: live, unit: index}
-  - {key: nasdaq_fut, label: "Nasdaq fut",   section: equity_futures, source: yahoo, symbol: "NQ=F", cls: equity, freshness: live, unit: index}
-  - {key: dow_fut,    label: "Dow fut",      section: equity_futures, source: yahoo, symbol: "YM=F", cls: equity, freshness: live, unit: index}
-
-  # --- Asia close ---
-  - {key: nikkei,   label: "Nikkei 225",     section: asia, source: yahoo, symbol: "^N225",     cls: equity, freshness: live, unit: index, note: "Session close"}
-  - {key: hang_seng, label: "Hang Seng",     section: asia, source: yahoo, symbol: "^HSI",      cls: equity, freshness: live, unit: index, note: "Session close"}
-  - {key: shanghai, label: "Shanghai Comp",  section: asia, source: yahoo, symbol: "000001.SS", cls: equity, freshness: live, unit: index, note: "Session close"}
-  - {key: asx,      label: "ASX 200",        section: asia, source: yahoo, symbol: "^AXJO",     cls: equity, freshness: live, unit: index, note: "Session close"}
-
-  # --- Europe mid-morning (intraday at 6:30 ET — labeled as such) ---
-  - {key: stoxx50, label: "Euro Stoxx 50", section: europe, source: yahoo, symbol: "^STOXX50E", cls: equity, freshness: live, unit: index, note: "Intraday level, not a close"}
-  - {key: dax,     label: "DAX",           section: europe, source: yahoo, symbol: "^GDAXI",    cls: equity, freshness: live, unit: index, note: "Intraday level, not a close"}
-  - {key: ftse,    label: "FTSE 100",      section: europe, source: yahoo, symbol: "^FTSE",     cls: equity, freshness: live, unit: index, note: "Intraday level, not a close"}
-  - {key: cac,     label: "CAC 40",        section: europe, source: yahoo, symbol: "^FCHI",     cls: equity, freshness: live, unit: index, note: "Intraday level, not a close"}
-
-  # --- Canada equity (no free TSX futures feed — prior close, labeled) ---
-  - {key: tsx, label: "TSX Composite (prior close)", section: canada, source: yahoo, symbol: "^GSPTSE", cls: equity, freshness: daily, unit: index, note: "Prior close; SXF futures not available from free sources"}
-
-  # --- FX ---
-  - {key: dxy,    label: "DXY",     section: fx, source: yahoo, symbol: "DX-Y.NYB", cls: fx_index, freshness: live, unit: index}
+  # --- FX. USD/CAD leads. ----------------------------------------------------
   - {key: usdcad, label: "USD/CAD", section: fx, source: yahoo, symbol: "CAD=X",    cls: fx,       freshness: live, unit: rate}
+  - {key: dxy,    label: "DXY",     section: fx, source: yahoo, symbol: "DX-Y.NYB", cls: fx_index, freshness: live, unit: index}
   - {key: eurusd, label: "EUR/USD", section: fx, source: yahoo, symbol: "EURUSD=X", cls: fx,       freshness: live, unit: rate}
   - {key: usdjpy, label: "USD/JPY", section: fx, source: yahoo, symbol: "JPY=X",    cls: fx_jpy,   freshness: live, unit: rate}
 
-  # --- Commodities ---
+  # --- Commodities. WTI and nat gas carry the Canadian terms of trade. -------
   - {key: wti,    label: "WTI",     section: commodities, source: yahoo, symbol: "CL=F", cls: commodity, freshness: live, unit: "$/bbl"}
   - {key: brent,  label: "Brent",   section: commodities, source: yahoo, symbol: "BZ=F", cls: commodity, freshness: live, unit: "$/bbl"}
+  - {key: natgas, label: "Nat gas", section: commodities, source: yahoo, symbol: "NG=F", cls: natgas,    freshness: live, unit: "$/MMBtu"}
   - {key: gold,   label: "Gold",    section: commodities, source: yahoo, symbol: "GC=F", cls: commodity, freshness: live, unit: "$/oz"}
   - {key: copper, label: "Copper",  section: commodities, source: yahoo, symbol: "HG=F", cls: commodity, freshness: live, unit: "$/lb"}
-  - {key: natgas, label: "Nat gas", section: commodities, source: yahoo, symbol: "NG=F", cls: natgas, freshness: live, unit: "$/MMBtu"}
 
-  # --- Volatility ---
-  - {key: vix,  label: "VIX",        section: volatility, source: yahoo, symbol: "^VIX",  cls: vol_index, freshness: live, unit: index}
-  - {key: move, label: "MOVE index", section: volatility, source: yahoo, symbol: "^MOVE", cls: move_index, freshness: daily, unit: index, note: "Updates end-of-day; prior close"}
+  # --- Equities. Four, deliberately. Cash closes, not futures. ---------------
+  - {key: tsx,    label: "S&P/TSX Composite", section: equities, source: yahoo, symbol: "^GSPTSE", cls: equity, freshness: daily, unit: index, note: "Index close"}
+  - {key: spx,    label: "S&P 500",           section: equities, source: yahoo, symbol: "^GSPC",   cls: equity, freshness: daily, unit: index, note: "Index close"}
+  - {key: nasdaq, label: "Nasdaq Composite",  section: equities, source: yahoo, symbol: "^IXIC",   cls: equity, freshness: daily, unit: index, note: "Index close"}
+  - {key: dow,    label: "Dow Jones",         section: equities, source: yahoo, symbol: "^DJI",    cls: equity, freshness: daily, unit: index, note: "Index close"}
 
-  # --- Crypto (one line max downstream) ---
-  - {key: btc, label: "BTC", section: crypto, source: yahoo, symbol: "BTC-USD", cls: crypto, freshness: live, unit: USD}
-  - {key: eth, label: "ETH", section: crypto, source: yahoo, symbol: "ETH-USD", cls: crypto, freshness: live, unit: USD}
+  # --- Volatility. MOVE is the rates analogue and matters more here. ---------
+  - {key: move, label: "MOVE", section: volatility, source: yahoo, symbol: "^MOVE", cls: move_index, freshness: daily, unit: index, note: "Rates volatility, prior close"}
+  - {key: vix,  label: "VIX",  section: volatility, source: yahoo, symbol: "^VIX",  cls: vol_index,  freshness: daily, unit: index, note: "Prior close"}
+
+  # --- Crypto. One line. -----------------------------------------------------
+  - {key: btc, label: "Bitcoin", section: crypto, source: yahoo, symbol: "BTC-USD", cls: crypto, freshness: live, unit: USD}
 
 # ----------------------------------------------------------------------------
-# Derived values — computed in the data layer so the model never does math.
-# a/b reference instrument keys; both legs must have survived sanity checks.
+# Derived values, computed in the data layer so the model never does arithmetic.
+# Both legs must have survived sanity checks or the derived value is omitted.
 # ----------------------------------------------------------------------------
 derived:
-  - {key: ust_2s10s_fut, label: "2s10s (yield-fut proxy)", section: curve, kind: yield_spread_bp, a: ust_10y_fut, b: ust_2y_fut, note: "From CBOT yield futures"}
-  - {key: ust_5s30s_fut, label: "5s30s (yield-fut proxy)", section: curve, kind: yield_spread_bp, a: ust_30y_fut, b: ust_5y_fut, note: "From CBOT yield futures"}
-  - {key: ust_2s10s, label: "2s10s (prior close)", section: curve, kind: yield_spread_bp, a: ust_10y, b: ust_2y, note: "Official H.15 closes"}
-  - {key: ust_5s30s, label: "5s30s (prior close)", section: curve, kind: yield_spread_bp, a: ust_30y, b: ust_5y, note: "Official H.15 closes"}
-  - {key: ca_us_10y, label: "Canada–US 10Y spread", section: canada, kind: yield_spread_bp, a: goc_10y, b: ust_10y, note: "Prior closes, BoC vs H.15"}
+  - {key: goc_2s10s,  label: "GoC 2s10s",   section: ca_rates, kind: yield_spread_bp, a: goc_10y, b: goc_2y,  note: "BoC benchmark closes"}
+  - {key: goc_5s30s,  label: "GoC 5s30s",   section: ca_rates, kind: yield_spread_bp, a: goc_30y, b: goc_5y,  note: "BoC benchmark closes"}
+  - {key: ca_us_2y,   label: "Canada-US 2Y",  section: ca_rates, kind: yield_spread_bp, a: goc_2y,  b: ust_2y,  note: "BoC benchmark vs H.15"}
+  - {key: ca_us_10y,  label: "Canada-US 10Y", section: ca_rates, kind: yield_spread_bp, a: goc_10y, b: ust_10y, note: "BoC benchmark vs H.15"}
+  - {key: ust_2s10s,  label: "UST 2s10s",   section: us_rates, kind: yield_spread_bp, a: ust_10y, b: ust_2y,  note: "H.15 closes"}
+  - {key: ust_5s30s,  label: "UST 5s30s",   section: us_rates, kind: yield_spread_bp, a: ust_30y, b: ust_5y,  note: "H.15 closes"}
 
 # ----------------------------------------------------------------------------
-# Sanity-check classes: plausible level bounds and max plausible one-day move.
-# A value outside these is treated as bad data, logged, and omitted.
+# Sanity classes: plausible level bounds, plus max plausible 1-day and 1-week
+# moves. A value outside these is treated as bad data, logged, and omitted.
 # ----------------------------------------------------------------------------
 sanity:
-  equity:          {min: 50,    max: 200000, max_change_pct: 12}
-  fx:              {min: 0.2,   max: 5,      max_change_pct: 5}
-  fx_jpy:          {min: 50,    max: 400,    max_change_pct: 5}
-  fx_index:        {min: 60,    max: 180,    max_change_pct: 5}
-  commodity:       {min: 0.5,   max: 20000,  max_change_pct: 20}
-  natgas:          {min: 0.5,   max: 60,     max_change_pct: 35}
-  vol_index:       {min: 5,     max: 200,    max_change_pct: 200}
-  move_index:      {min: 30,    max: 400,    max_change_pct: 80}
-  yield_pct:       {min: -1.5,  max: 12,     max_change_bp: 80}
-  real_yield_pct:  {min: -3,    max: 8,      max_change_bp: 80}
-  # spread_bp values are already in bp (scale: 100 applied at fetch), so a
-  # 1-unit change is 1bp — bp_per_unit 1, unlike %-quoted yield series.
-  spread_bp:       {min: 20,    max: 3000,   max_change_bp: 150, bp_per_unit: 1}
-  crypto:          {min: 1,     max: 1000000, max_change_pct: 30}
+  equity:          {min: 50,    max: 200000,  max_change_pct: 12,  max_week_change_pct: 25}
+  fx:              {min: 0.2,   max: 5,       max_change_pct: 5,   max_week_change_pct: 10}
+  fx_jpy:          {min: 50,    max: 400,     max_change_pct: 5,   max_week_change_pct: 10}
+  fx_index:        {min: 60,    max: 180,     max_change_pct: 5,   max_week_change_pct: 10}
+  commodity:       {min: 0.5,   max: 20000,   max_change_pct: 20,  max_week_change_pct: 35}
+  natgas:          {min: 0.5,   max: 60,      max_change_pct: 35,  max_week_change_pct: 60}
+  vol_index:       {min: 5,     max: 200,     max_change_pct: 200, max_week_change_pct: 300}
+  move_index:      {min: 30,    max: 400,     max_change_pct: 80,  max_week_change_pct: 150}
+  yield_pct:       {min: -1.5,  max: 12,      max_change_bp: 80,   max_week_change_bp: 150}
+  real_yield_pct:  {min: -3,    max: 8,       max_change_bp: 80,   max_week_change_bp: 150}
+  policy_rate:     {min: -1,    max: 15,      max_change_bp: 100,  max_week_change_bp: 100}
+  spread_bp:       {min: 20,    max: 3000,    max_change_bp: 150,  max_week_change_bp: 300, bp_per_unit: 1}
+  crypto:          {min: 1,     max: 1000000, max_change_pct: 30,  max_week_change_pct: 50}
 
-# Staleness: a point older than this is treated as failed, not passed through.
+# Correlated pairs. If two legs that normally move together diverge by more
+# than the tolerance, both are rejected as likely bad data (for example a
+# futures contract roll putting a stale prior close behind one leg).
+correlated_pairs:
+  - {a: wti, b: brent, max_divergence_pct: 3.0, basis: week}
+  - {a: spx, b: dow,   max_divergence_pct: 6.0, basis: week}
+
+# A point older than this is treated as failed, not passed through.
 staleness_hours:
-  live: 18     # 24h-traded futures/FX and same-day session closes
-  daily: 120   # official daily series (covers a weekend + holiday)
+  live: 96
+  daily: 168
 
-# ----------------------------------------------------------------------------
-# Health / fail-closed policy.
-# degraded  => do not send to `full`; alert instead.
-# ----------------------------------------------------------------------------
 health:
-  critical_keys: [ust_10y, ust_2y, ust_10y_fut, spx_fut, ig_oas, hy_oas]
-  # Run is degraded if any critical key is missing, or overall failure ratio
-  # (failed + rejected) / attempted exceeds this.
+  critical_keys: [goc_2y, goc_10y, ust_2y, ust_10y, ig_oas, hy_oas, usdcad]
   max_failure_ratio: 0.25
 
-# Treasury auction close times are fixed by convention, not in the data feed.
-# Labeled "(typical)" downstream.
 auction_typical_times_et:
   Bill: "11:30"
   Note: "13:00"

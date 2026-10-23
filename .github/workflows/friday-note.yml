@@ -8,12 +8,12 @@
 # runner refuses to send more than 25 minutes late. Idempotency: the runner
 # checks for an earlier successful scheduled run today (plus a Resend
 # Idempotency-Key), and this concurrency group serializes overlapping runs.
-name: Daily brief
+name: Friday Markets Note
 
 on:
   schedule:
-    - cron: "45 9 * * 1-5"    # in-window during EDT (05:45 ET)
-    - cron: "45 10 * * 1-5"   # in-window during EST (05:45 ET); EDT late-retry
+    - cron: "45 9 * * 5"     # in-window during EDT (05:45 ET)
+    - cron: "45 10 * * 5"    # in-window during EST (05:45 ET); EDT late-retry
   workflow_dispatch:
     inputs:
       mode:
@@ -28,7 +28,7 @@ permissions:
   issues: write      # failure alerting without any external secrets
 
 concurrency:
-  group: daily-brief
+  group: friday-markets-note
   cancel-in-progress: false
 
 jobs:
@@ -66,7 +66,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: brief-${{ github.run_id }}
+          name: note-${{ github.run_id }}
           path: |
             out/email.html
             out/email.txt
@@ -82,12 +82,12 @@ jobs:
         with:
           script: |
             const today = new Date().toISOString().slice(0, 10);
-            const title = `Market brief run FAILED — ${today}`;
+            const title = `Friday Markets Note run FAILED — ${today}`;
             const body = [
               `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
               `Event: ${context.eventName}`,
               "",
-              "The daily brief did not complete. Fail-closed policy means nothing",
+              "The weekly note did not complete. Fail-closed policy means nothing",
               "was sent to the list. Check the run log and out/run-summary.json artifact.",
             ].join("\n");
             const open = await github.rest.issues.listForRepo({

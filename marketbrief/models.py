@@ -37,9 +37,15 @@ class DataPoint:
     freshness: Freshness
     prev_value: float | None = None
     prev_asof_date: str | None = None
-    change: float | None = None      # value - prev_value, in change_unit
+    change: float | None = None      # 1-day: value - prev_value, in change_unit
     change_unit: str | None = None   # "bp", "%", or unit of the level
-    change_pct: float | None = None  # percent change where meaningful
+    change_pct: float | None = None
+    # Week-over-week, measured against the prior Friday's close. This is the
+    # headline move in a weekly note; the 1-day fields are secondary.
+    week_value: float | None = None
+    week_asof_date: str | None = None
+    change_week: float | None = None
+    change_week_pct: float | None = None
     note: str | None = None
 
     def to_dict(self) -> dict[str, Any]:

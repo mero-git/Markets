@@ -11,7 +11,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from ..config import Config, InstrumentSpec, SanityRule
+from ..config import Config, CorrelatedPair, InstrumentSpec, SanityRule
 from .base import RawQuote
 
 log = logging.getLogger(__name__)
@@ -43,6 +43,44 @@ def check_value(quote: RawQuote, rule: SanityRule) -> CheckResult:
             move_pct = abs(quote.value / quote.prev_value - 1.0) * 100.0
             if move_pct > rule.max_change_pct:
                 return CheckResult(False, f"move {move_pct:.1f}% exceeds {rule.max_change_pct}%")
+
+    if quote.week_value is not None:
+        if quote.week_value != quote.week_value:
+            return CheckResult(False, "week_value is NaN")
+        if not (rule.min <= quote.week_value <= rule.max):
+            return CheckResult(
+                False, f"week-ago level {quote.week_value} outside [{rule.min}, {rule.max}]")
+        if rule.max_week_change_bp is not None:
+            move_bp = abs(quote.value - quote.week_value) * rule.bp_per_unit
+            if move_bp > rule.max_week_change_bp:
+                return CheckResult(
+                    False, f"weekly move {move_bp:.1f}bp exceeds {rule.max_week_change_bp}bp")
+        if rule.max_week_change_pct is not None and quote.week_value != 0:
+            move_pct = abs(quote.value / quote.week_value - 1.0) * 100.0
+            if move_pct > rule.max_week_change_pct:
+                return CheckResult(
+                    False, f"weekly move {move_pct:.1f}% exceeds {rule.max_week_change_pct}%")
+    return CheckResult(True)
+
+
+def check_correlated_pair(pair: CorrelatedPair, a_pct: float | None,
+                          b_pct: float | None) -> CheckResult:
+    """Two legs that normally track each other must not diverge implausibly.
+
+    Each leg can pass its own bounds while the pair is plainly wrong, which is
+    what a futures contract roll looks like: one leg keeps a stale prior close
+    and prints a move its twin did not make. Rejecting both is the safe call,
+    because there is no way to tell from the data which leg is the bad one.
+    """
+    if a_pct is None or b_pct is None:
+        return CheckResult(True)
+    divergence = abs(a_pct - b_pct)
+    if divergence > pair.max_divergence_pct:
+        return CheckResult(
+            False,
+            f"{pair.a} and {pair.b} diverged {divergence:.1f}pp over the "
+            f"{pair.basis} (limit {pair.max_divergence_pct}pp); likely a bad "
+            "print or a contract roll")
     return CheckResult(True)
 
 

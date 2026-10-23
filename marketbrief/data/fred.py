@@ -16,7 +16,7 @@ from datetime import date, timedelta
 
 import requests
 
-from .base import DEFAULT_TIMEOUT, RawQuote
+from .base import DEFAULT_TIMEOUT, RawQuote, pick_week_ago
 
 API_URL = "https://api.stlouisfed.org/fred/series/observations"
 CSV_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv"
@@ -27,17 +27,20 @@ LOOKBACK_DAYS = 21
 
 
 def _pair_to_quote(obs: list[tuple[str, float]], series: str) -> RawQuote:
-    """Latest two (date, value) observations -> RawQuote."""
+    """Observation list (ascending) -> RawQuote with 1-day and 1-week moves."""
     if not obs:
         raise ValueError(f"FRED {series}: no usable observations")
     last_date, last_val = obs[-1]
     prev_date, prev_val = (obs[-2] if len(obs) >= 2 else (None, None))
+    week_date, week_val = pick_week_ago(obs, last_date)
     return RawQuote(
         value=last_val,
         prev_value=prev_val,
         asof=None,
         asof_date=last_date,
         prev_asof_date=prev_date,
+        week_value=week_val,
+        week_asof_date=week_date,
     )
 
 

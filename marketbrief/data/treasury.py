@@ -76,8 +76,8 @@ def fetch_todays_auctions(session: requests.Session, cfg: Config, today: date) -
 
 
 def fetch_recent_results(session: requests.Session, cfg: Config, today: date) -> list[Auction]:
-    """Results from auctions that cleared in the last few days (excl. today)."""
-    resp = session.get(AUCTIONED_URL, params={"format": "json", "days": 4}, timeout=DEFAULT_TIMEOUT)
+    """Results from auctions that cleared this week (excluding today)."""
+    resp = session.get(AUCTIONED_URL, params={"format": "json", "days": 7}, timeout=DEFAULT_TIMEOUT)
     resp.raise_for_status()
     records = resp.json() or []
     out: list[Auction] = []

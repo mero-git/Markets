@@ -29,7 +29,7 @@ from ..models import (
 from ..schedule import is_bond_market_open, is_send_day, local_trading_date
 from . import boc, foreign, fred, treasury, yahoo
 from .base import RawQuote, SourceError, fetch_with_retries, make_session, utc_now
-from .sanity import validate
+from .sanity import check_correlated_pair, validate
 
 log = logging.getLogger(__name__)
 
@@ -61,24 +61,28 @@ def _apply_scale(quote: RawQuote, scale: float) -> RawQuote:
         asof=quote.asof,
         asof_date=quote.asof_date,
         prev_asof_date=quote.prev_asof_date,
+        week_value=quote.week_value * scale if quote.week_value is not None else None,
+        week_asof_date=quote.week_asof_date,
     )
 
 
+def _delta(value: float, base: float | None, spec: InstrumentSpec
+           ) -> tuple[float | None, str | None, float | None]:
+    """(change, change_unit, change_pct) for a value against a baseline."""
+    if base is None:
+        return None, None, None
+    if spec.cls in _YIELD_CLASSES:
+        return round((value - base) * 100.0, 2), "bp", None   # % -> bp
+    if spec.unit == "bp":
+        return round(value - base, 2), "bp", None
+    pct = round((value / base - 1.0) * 100.0, 2) if base != 0 else None
+    return round(value - base, 6), spec.unit, pct
+
+
 def _to_point(quote: RawQuote, spec: InstrumentSpec, now: datetime) -> DataPoint:
-    change = change_pct = None
-    change_unit = None
-    if quote.prev_value is not None:
-        if spec.cls in _YIELD_CLASSES:
-            change = round((quote.value - quote.prev_value) * 100.0, 2)  # % -> bp
-            change_unit = "bp"
-        elif spec.unit == "bp":
-            change = round(quote.value - quote.prev_value, 2)
-            change_unit = "bp"
-        else:
-            change = round(quote.value - quote.prev_value, 6)
-            change_unit = spec.unit
-            if quote.prev_value != 0:
-                change_pct = round((quote.value / quote.prev_value - 1.0) * 100.0, 2)
+    change, change_unit, change_pct = _delta(quote.value, quote.prev_value, spec)
+    change_week, week_unit, change_week_pct = _delta(quote.value, quote.week_value, spec)
+    change_unit = change_unit or week_unit
     return DataPoint(
         key=spec.key,
         label=spec.label,
@@ -95,6 +99,10 @@ def _to_point(quote: RawQuote, spec: InstrumentSpec, now: datetime) -> DataPoint
         change=change,
         change_unit=change_unit,
         change_pct=change_pct,
+        week_value=quote.week_value,
+        week_asof_date=quote.week_asof_date,
+        change_week=change_week,
+        change_week_pct=change_week_pct,
         note=spec.note,
     )
 
@@ -111,6 +119,12 @@ def _derive(spec: DerivedSpec, points: dict[str, DataPoint], now: datetime) -> D
     change = None
     if a.change is not None and b.change is not None and a.change_unit == b.change_unit == "bp":
         change = round(a.change - b.change, 1)
+    change_week = None
+    if a.change_week is not None and b.change_week is not None:
+        change_week = round(a.change_week - b.change_week, 1)
+    week_value = None
+    if a.week_value is not None and b.week_value is not None:
+        week_value = round((a.week_value - b.week_value) * 100.0, 1)
     asof_dates = [d for d in (a.asof_date, b.asof_date) if d]
     return DataPoint(
         key=spec.key,
@@ -124,7 +138,10 @@ def _derive(spec: DerivedSpec, points: dict[str, DataPoint], now: datetime) -> D
         asof_date=min(asof_dates) if asof_dates else None,
         freshness=Freshness.DAILY if a.freshness == b.freshness == Freshness.DAILY else Freshness.LIVE,
         change=change,
-        change_unit="bp" if change is not None else None,
+        change_unit="bp" if (change is not None or change_week is not None) else None,
+        week_value=week_value,
+        week_asof_date=a.week_asof_date or b.week_asof_date,
+        change_week=change_week,
         note=spec.note,
     )
 
@@ -157,7 +174,26 @@ def build_snapshot(cfg: Config, *, session: requests.Session | None = None) -> M
             continue
         points.append(_to_point(quote, spec, now))
 
+    # Cross-instrument screen: legs that normally move together must agree.
     by_key = {p.key: p for p in points}
+    for pair in cfg.correlated_pairs:
+        a, b = by_key.get(pair.a), by_key.get(pair.b)
+        if a is None or b is None:
+            continue
+        a_pct = a.change_week_pct if pair.basis == "week" else a.change_pct
+        b_pct = b.change_week_pct if pair.basis == "week" else b.change_pct
+        result = check_correlated_pair(pair, a_pct, b_pct)
+        if result.ok:
+            continue
+        log.warning("correlated-pair rejection %s/%s: %s", pair.a, pair.b, result.reason)
+        for point in (a, b):
+            rejections.append(Rejection(
+                key=point.key, source=point.source, reason=result.reason or "pair divergence",
+                value=point.value, prev_value=point.prev_value, fetched_at=now))
+            points.remove(point)
+        by_key.pop(pair.a, None)
+        by_key.pop(pair.b, None)
+
     for dspec in cfg.derived:
         derived = _derive(dspec, by_key, now)
         if derived is not None:

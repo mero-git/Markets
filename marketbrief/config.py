@@ -43,6 +43,8 @@ class SanityRule:
     max: float
     max_change_pct: float | None = None
     max_change_bp: float | None = None
+    max_week_change_pct: float | None = None
+    max_week_change_bp: float | None = None
     # bp per unit of the raw value: 100 for %-denominated series, 1 for
     # series already quoted in bp (credit OAS).
     bp_per_unit: float = 100.0
@@ -51,6 +53,7 @@ class SanityRule:
 @dataclass(frozen=True, slots=True)
 class DeliveryConfig:
     send_time_local: str
+    send_weekdays: tuple[int, ...]
     holiday_calendar: str
     bond_calendar: str
 
@@ -81,9 +84,17 @@ class NewsConfig:
 
 @dataclass(frozen=True, slots=True)
 class EmailConfig:
-    subject_prefix: str
+    title: str
     sender_name: str
-    sender_affiliation: str
+    sender_descriptor: str
+
+
+@dataclass(frozen=True, slots=True)
+class CorrelatedPair:
+    a: str
+    b: str
+    max_divergence_pct: float
+    basis: str = "week"   # week | day
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,6 +108,7 @@ class Config:
     instruments: tuple[InstrumentSpec, ...]
     derived: tuple[DerivedSpec, ...]
     sanity: dict[str, SanityRule]
+    correlated_pairs: tuple[CorrelatedPair, ...]
     staleness_hours: dict[str, float]
     health: HealthConfig
     auction_typical_times_et: dict[str, str] = field(default_factory=dict)
@@ -125,7 +137,12 @@ def load_config(path: Path | str = DEFAULT_CONFIG_PATH) -> Config:
 
     return Config(
         timezone=raw["timezone"],
-        delivery=DeliveryConfig(**raw["delivery"]),
+        delivery=DeliveryConfig(
+            send_time_local=raw["delivery"]["send_time_local"],
+            send_weekdays=tuple(raw["delivery"]["send_weekdays"]),
+            holiday_calendar=raw["delivery"]["holiday_calendar"],
+            bond_calendar=raw["delivery"]["bond_calendar"],
+        ),
         run=RunConfig(**raw["run"]),
         generation=GenerationConfig(**raw["generation"]),
         news=NewsConfig(**raw["news"]),
@@ -133,6 +150,7 @@ def load_config(path: Path | str = DEFAULT_CONFIG_PATH) -> Config:
         instruments=instruments,
         derived=derived,
         sanity={k: SanityRule(**v) for k, v in raw["sanity"].items()},
+        correlated_pairs=tuple(CorrelatedPair(**p) for p in raw.get("correlated_pairs", [])),
         staleness_hours={k: float(v) for k, v in raw["staleness_hours"].items()},
         health=HealthConfig(
             critical_keys=tuple(raw["health"]["critical_keys"]),

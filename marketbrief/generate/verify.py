@@ -60,11 +60,13 @@ def build_allowed_numbers(snapshot: MarketSnapshot, news: NewsBundle | None) -> 
     allowed: set[str] = set()
 
     for p in snapshot.points:
-        for v in (p.value, p.prev_value, p.change, p.change_pct):
+        for v in (p.value, p.prev_value, p.change, p.change_pct,
+                  p.week_value, p.change_week, p.change_week_pct):
             if v is not None:
                 allowed |= _numeric_variants(v)
         # Numbers embedded in labels/notes/dates ("S&P 500", "2s10s", obs dates)
-        for s in (p.label, p.note, p.asof_date, p.prev_asof_date, p.unit):
+        for s in (p.label, p.note, p.asof_date, p.prev_asof_date,
+                  p.week_asof_date, p.unit):
             if s:
                 allowed |= _tokens_in_text(s)
 

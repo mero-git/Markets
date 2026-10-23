@@ -15,8 +15,8 @@ from .models import Auction, DataPoint, MarketSnapshot
 _ET = ZoneInfo("America/New_York")
 
 _SECTION_ORDER = [
-    "curve", "credit", "canada", "equity_futures", "asia", "europe",
-    "fx", "commodities", "volatility", "crypto",
+    "ca_rates", "us_rates", "credit", "fx", "commodities", "equities",
+    "volatility", "crypto",
 ]
 
 
@@ -31,15 +31,21 @@ def _fmt_value(p: DataPoint) -> str:
 
 
 def _fmt_change(p: DataPoint) -> str:
-    if p.change is None:
+    return _fmt_delta(p.change, p.change_pct, p.change_unit)
+
+
+def _fmt_week(p: DataPoint) -> str:
+    return _fmt_delta(p.change_week, p.change_week_pct, p.change_unit)
+
+
+def _fmt_delta(value, pct, unit) -> str:
+    if value is None and pct is None:
         return "n/a"
-    sign = "+" if p.change >= 0 else ""
-    if p.change_unit == "bp":
-        return f"{sign}{p.change:.1f}bp"
-    out = f"{sign}{p.change:,.4g}"
-    if p.change_pct is not None:
-        out += f" ({sign}{p.change_pct:.2f}%)"
-    return out
+    if unit == "bp" and value is not None:
+        return f"{value:+.1f}bp"
+    if pct is not None:
+        return f"{pct:+.2f}%"
+    return f"{value:+,.4g}"
 
 
 def _fmt_asof(p: DataPoint) -> str:
@@ -83,7 +89,8 @@ def render_table(snap: MarketSnapshot) -> str:
         sections.setdefault(p.section, []).append(p)
 
     order = _SECTION_ORDER + [s for s in sections if s not in _SECTION_ORDER]
-    header = f"{'instrument':<34}{'value':>12}{'change':>18}  {'as of':<20}{'source':<28}note"
+    header = (f"{'instrument':<28}{'value':>12}{'1 week':>12}{'1 day':>12}  "
+              f"{'as of':<20}{'week ago':<12}{'source':<26}note")
     for section in order:
         pts = sections.get(section)
         if not pts:
@@ -92,8 +99,9 @@ def render_table(snap: MarketSnapshot) -> str:
         lines.append(header)
         for p in pts:
             lines.append(
-                f"{p.label:<34}{_fmt_value(p):>12}{_fmt_change(p):>18}  "
-                f"{_fmt_asof(p):<20}{p.source:<28}{p.note or ''}"
+                f"{p.label:<28}{_fmt_value(p):>12}{_fmt_week(p):>12}"
+                f"{_fmt_change(p):>12}  {_fmt_asof(p):<20}"
+                f"{p.week_asof_date or '-':<12}{p.source:<26}{p.note or ''}"
             )
         lines.append("")
 

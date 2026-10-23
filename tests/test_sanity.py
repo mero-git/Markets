@@ -75,7 +75,7 @@ class TestStaleness:
         assert res.ok
 
     def test_stale_live_quote_fails(self, cfg):
-        res = check_staleness(q(6500.0, asof=NOW - timedelta(hours=30)), spec(), cfg, NOW)
+        res = check_staleness(q(6500.0, asof=NOW - timedelta(hours=120)), spec(), cfg, NOW)
         assert not res.ok and "stale" in res.reason
 
     def test_daily_obs_within_window_passes(self, cfg):
@@ -103,7 +103,7 @@ class TestStaleness:
 
 class TestValidateIntegration:
     def test_stale_beats_value_check(self, cfg):
-        res = validate(q(6500.0, 6450.0, asof=NOW - timedelta(days=4)), spec(), cfg, NOW)
+        res = validate(q(6500.0, 6450.0, asof=NOW - timedelta(days=6)), spec(), cfg, NOW)
         assert not res.ok and "stale" in res.reason
 
     def test_unknown_class_rejected(self, cfg):
