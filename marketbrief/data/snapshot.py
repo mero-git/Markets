@@ -33,7 +33,7 @@ from .sanity import check_correlated_pair, validate
 
 log = logging.getLogger(__name__)
 
-_YIELD_CLASSES = {"yield_pct", "real_yield_pct"}
+_YIELD_CLASSES = {"yield_pct", "real_yield_pct", "policy_rate"}
 
 
 def _dispatch(session: requests.Session, spec: InstrumentSpec) -> RawQuote:

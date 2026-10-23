@@ -79,6 +79,9 @@ def _bp(x: float) -> str:
 def _change(value: float | None, pct: float | None, unit: str | None) -> str:
     if value is None and pct is None:
         return "n/a"
+    # A genuinely flat week reads better as a word than as a signed zero.
+    if (value == 0 and pct in (None, 0)) or (pct == 0 and value in (None, 0)):
+        return "unchanged"
     if unit == "bp" and value is not None:
         return _bp(value)
     if pct is not None:
@@ -102,7 +105,7 @@ def _dir_colour(value: float | None, pct: float | None) -> str:
 
 
 def _plain_change(p: DataPoint) -> str:
-    return f"{_week(p)} wk"
+    return f"1W {_week(p)}"
 
 
 # --- building blocks -------------------------------------------------------
@@ -323,6 +326,12 @@ def render_email(cfg: Config, snapshot: MarketSnapshot, narrative: BriefNarrativ
                   _table(eq)]
         plain_block("Equities", narrative.equities_comment, eq)
 
+    # --- Volatility ---
+    vol = _ordered(snapshot, "volatility")
+    if vol:
+        parts += [_section_head("Volatility"), _table(vol)]
+        plain_block("Volatility", None, vol)
+
     # --- What to watch ---
     deck: list[str] = []
     for c in news.calendar:
@@ -334,8 +343,9 @@ def render_email(cfg: Config, snapshot: MarketSnapshot, narrative: BriefNarrativ
         deck.append(f"{c.time_et} ET, {c.item}" if c.time_et else c.item)
     for a in snapshot.auctions_today:
         deck.append(f"Auction: {_auction_line(a)}")
-    vol = _ordered(snapshot, "volatility")
-    if deck or narrative.watch_comment or vol:
+    # Forward-looking only. With nothing scheduled and nothing to say, the
+    # section is omitted rather than padded with data shown elsewhere.
+    if deck or narrative.watch_comment:
         parts += [_section_head("What to watch"), _comment(narrative.watch_comment)]
         text.append("WHAT TO WATCH")
         if narrative.watch_comment:
@@ -345,10 +355,7 @@ def render_email(cfg: Config, snapshot: MarketSnapshot, narrative: BriefNarrativ
                 f'<tr><td style="{_PAD}padding-top:12px;">'
                 f'<div style="{_BODY_TXT}">'
                 + "<br>".join(html.escape(d) for d in deck) + "</div></td></tr>")
-            text += [f"  - {d}" for d in deck]
-        if vol:
-            parts.append(_table(vol))
-            text += [f"  {p.label}: {_level(p)} ({_plain_change(p)})" for p in vol]
+            text.extend(f"  - {d}" for d in deck)
         text.append("")
 
     # --- Footer ---
