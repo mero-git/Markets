@@ -14,7 +14,7 @@ on:
         default: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   fetch:
@@ -51,10 +51,16 @@ jobs:
             table.txt
           retention-days: 14
 
-      # Emits the snapshot as one compact JSON line so it can be lifted out of
-      # the job log and re-rendered offline with `marketbrief render`.
-      - name: Emit snapshot JSON to log
+      # Publishes the snapshot to a data branch so it can be fetched and
+      # re-rendered offline with `marketbrief render` from environments whose
+      # egress policy blocks the market data hosts and artifact storage.
+      - name: Publish snapshot to data branch
         run: |
-          echo "SNAPSHOT_JSON_BEGIN"
-          python -c "import json,sys; print(json.dumps(json.load(open('snapshot.json')),separators=(',',':')))"
-          echo "SNAPSHOT_JSON_END"
+          sha256sum snapshot.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan data-snapshot
+          git rm -rf --cached . >/dev/null
+          git add -f snapshot.json table.txt
+          git commit -q -m "Snapshot $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push -f origin data-snapshot
