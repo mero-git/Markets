@@ -50,3 +50,11 @@ jobs:
             snapshot.json
             table.txt
           retention-days: 14
+
+      # Emits the snapshot as one compact JSON line so it can be lifted out of
+      # the job log and re-rendered offline with `marketbrief render`.
+      - name: Emit snapshot JSON to log
+        run: |
+          echo "SNAPSHOT_JSON_BEGIN"
+          python -c "import json,sys; print(json.dumps(json.load(open('snapshot.json')),separators=(',',':')))"
+          echo "SNAPSHOT_JSON_END"
