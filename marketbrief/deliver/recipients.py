@@ -72,6 +72,6 @@ def resolve_recipients(tier: str) -> Recipients:
         var = "RECIPIENTS_TEST" if tier == "test" else "RECIPIENTS_FULL"
         bcc = [a for a in _split(os.environ.get(var)) if a not in owner]
         if not bcc:
-            raise RecipientError(f"{var} is empty — nothing to send for tier {tier!r}")
+            raise RecipientError(f"{var} is empty, nothing to send for tier {tier!r}")
 
     return Recipients(tier=tier, to=owner, bcc=bcc, from_addr=from_addr)

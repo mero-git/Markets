@@ -12,6 +12,10 @@ on:
         description: Debug-level fetch logging
         type: boolean
         default: false
+      publish_snapshot:
+        description: Also force-push the snapshot to the data-snapshot branch
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -55,6 +59,7 @@ jobs:
       # re-rendered offline with `marketbrief render` from environments whose
       # egress policy blocks the market data hosts and artifact storage.
       - name: Publish snapshot to data branch
+        if: ${{ inputs.publish_snapshot }}
         run: |
           sha256sum snapshot.json
           git config user.name "github-actions[bot]"

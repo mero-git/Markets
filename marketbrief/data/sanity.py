@@ -107,7 +107,7 @@ def check_staleness(
             return CheckResult(False, f"stale: observation {quote.asof_date} is {age.total_seconds() / 3600:.0f}h old (limit {limit_hours:.0f}h)")
         return CheckResult(True)
 
-    return CheckResult(False, "no timestamp on quote — cannot assess staleness")
+    return CheckResult(False, "no timestamp on quote, cannot assess staleness")
 
 
 def validate(quote: RawQuote, spec: InstrumentSpec, cfg: Config, now: datetime) -> CheckResult:

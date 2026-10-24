@@ -1,7 +1,7 @@
 """Human-readable verification table for a snapshot.
 
 This is the hand-check view: every value with its change, as-of time (ET),
-and source, plus failures, rejections, and the health verdict — so the
+and source, plus failures, rejections, and the health verdict, so the
 numbers can be verified against a terminal before any model touches them.
 """
 
@@ -78,7 +78,7 @@ def _fmt_auction(a: Auction) -> str:
 def render_table(snap: MarketSnapshot) -> str:
     lines: list[str] = []
     gen_et = snap.generated_at.astimezone(_ET)
-    lines.append(f"MARKET SNAPSHOT — trading date {snap.trading_date}, "
+    lines.append(f"MARKET SNAPSHOT, week ending {snap.trading_date}, "
                  f"generated {gen_et.strftime('%Y-%m-%d %H:%M:%S ET')}")
     lines.append(f"NYSE open today: {snap.nyse_open_today}   "
                  f"SIFMA (bond mkt) open today: {snap.sifma_open_today}")
@@ -131,7 +131,7 @@ def render_table(snap: MarketSnapshot) -> str:
         lines.append("")
 
     h = snap.health
-    verdict = "DEGRADED — would NOT send beyond self" if h.degraded else "HEALTHY"
+    verdict = "DEGRADED, would NOT send beyond self" if h.degraded else "HEALTHY"
     lines.append(f"── HEALTH: {verdict}")
     lines.append(f"   attempted={h.attempted} fetched={h.fetched} failed={h.failed} "
                  f"rejected={h.rejected} failure_ratio={h.failure_ratio:.0%}")

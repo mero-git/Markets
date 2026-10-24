@@ -89,7 +89,7 @@ def fetch_with_retries(
             last = exc
             if attempt < attempts:
                 delay = base_delay * (2 ** (attempt - 1)) * (1 + random.random() * 0.25)
-                log.warning("fetch %s failed (attempt %d/%d): %s — retrying in %.1fs",
+                log.warning("fetch %s failed (attempt %d/%d): %s, retrying in %.1fs",
                             what, attempt, attempts, exc, delay)
                 time.sleep(delay)
     raise SourceError(f"{what}: {last}") from last

@@ -119,7 +119,7 @@ def _extract_json(text: str) -> dict[str, Any]:
 
 def gather_news(cfg: Config, snapshot: MarketSnapshot) -> NewsBundle:
     if not os.environ.get("ANTHROPIC_API_KEY"):
-        return NewsBundle(available=False, note="ANTHROPIC_API_KEY not set — news pass skipped")
+        return NewsBundle(available=False, note="ANTHROPIC_API_KEY not set, news pass skipped")
     try:
         import anthropic
 

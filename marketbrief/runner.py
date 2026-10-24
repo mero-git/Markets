@@ -187,7 +187,7 @@ def _run_inner(cfg: Config, mode: str, result: RunResult) -> RunResult:
         try:
             narrative = generate_narrative(cfg, snapshot, news)
         except GenerationError as exc:
-            send_alert("generation failed — nothing sent",
+            send_alert("generation failed, nothing sent",
                        f"{exc}\n\nHealth: {json.dumps(result.health, indent=1)}")
             raise
 
@@ -195,7 +195,7 @@ def _run_inner(cfg: Config, mode: str, result: RunResult) -> RunResult:
     effective_tier = tier
     if snapshot.health.degraded and tier != "self":
         effective_tier = "self"
-        send_alert("degraded data — send restricted to self",
+        send_alert("degraded data, send restricted to self",
                    "\n".join(snapshot.health.reasons))
         log.warning("degraded run: tier %s -> self", tier)
     result.tier = effective_tier
@@ -213,7 +213,7 @@ def _run_inner(cfg: Config, mode: str, result: RunResult) -> RunResult:
     try:
         recipients = resolve_recipients("self" if mode == "preview" else effective_tier)
     except RecipientError as exc:
-        send_alert("recipient configuration error — nothing sent", str(exc))
+        send_alert("recipient configuration error, nothing sent", str(exc))
         raise
 
     if mode == "send":

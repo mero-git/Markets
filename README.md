@@ -1,256 +1,259 @@
-# Blackleaf Capital — Daily Market Brief
+# Friday Markets Note
 
-Automated 6:30am ET weekday market note. Fixed income first, every number
-traceable to a fetched value, fail-closed by design.
+A weekly markets recap for Canadian fixed-income readers, sent automatically
+every Friday at 17:15 America/New_York. Canada rates and credit lead, the US
+follows as the read-across, and everything else stays short.
 
-Follow this file top to bottom with zero prior context and you will have a
-working daily brief landing in your own inbox, then your test group, then
-the full list.
+Every number in the note traces to a fetched value. Nothing is estimated,
+carried forward, or written from memory. If the data is bad or the text
+cannot be verified, the note does not go out.
 
----
-
-## 1. What it does
-
-Every weekday (skipping US market holidays), GitHub Actions wakes up before
-6:30am ET, fetches ~40 instruments from official and free sources, searches
-for material overnight news, has Claude write the narrative, **machine-checks
-every numeral in that narrative against the fetched data**, renders an
-Outlook-safe HTML email, and sends it BCC to your list at 6:30am ET exactly.
-
-If anything is wrong — data degraded, generation failed, a number that
-doesn't trace to the payload, more than 25 minutes late — it does **not**
-send to the list. It alerts you instead. A missing email is recoverable; a
-wrong one to a trading MD is not.
+Follow this file top to bottom with no prior context and you will have the
+note landing in your own inbox, then a test group, then the full list.
 
 ---
 
-## 2. Layout
+## 1. What happens each Friday
+
+1. GitHub Actions wakes up before 17:15 ET and sleeps to the exact send time.
+2. The data layer fetches 29 instruments from official and free sources and
+   computes every week-over-week and one-day change itself.
+3. Each value passes level, move, and staleness checks. Correlated pairs are
+   cross-checked against each other. Anything that fails is dropped, logged,
+   and omitted.
+4. A web search pass gathers the week's material news and next week's
+   calendar, every item carrying a source link.
+5. Claude writes the narrative: three weekly points and a short comment per
+   section. It never writes a table.
+6. Every numeral in that narrative is checked against the data payload. One
+   unverified number aborts the run.
+7. The note renders to Outlook-safe HTML plus a plain-text part and goes out
+   BCC to the configured tier.
+
+If anything breaks, nothing is sent to the list and you get an alert.
+
+## 2. Why 17:15 ET
+
+US cash equities close at 16:00, the H.15 Treasury release lands about 16:15,
+and Bank of Canada closing bond yields post about 16:30. Sending at 17:15
+gives those same-day closes time to publish without pushing the note into the
+evening.
+
+Official daily series still sometimes lag by a day. When that happens the
+note uses the latest close it actually has and the footer states that date,
+rather than implying it has Friday data. The weekly window is always close to
+close over one trading week, whatever that latest close turns out to be.
+
+Change the time in `config/config.yaml` under `delivery.send_time_local`. If
+you move it by more than about an hour, also move the two crons in
+`.github/workflows/friday-note.yml` (see section 7).
+
+## 3. Layout
 
 ```
-config/config.yaml           ALL settings: tickers, thresholds, schedule, model, send time
+config/config.yaml            ALL settings: instruments, thresholds, schedule, model
 marketbrief/
-  config.py                  Typed config loading
-  models.py                  DataPoint / Auction / HealthReport / MarketSnapshot
-  schedule.py                DST-correct send math, NYSE/SIFMA holiday calendars
-  health.py                  Degraded-run (fail-closed) decision
-  runner.py                  Run orchestration: send / preview / dry-run modes
-  alert.py                   Failure + degradation alerting
-  render_table.py            Human verification table
-  cli.py                     Argument wiring only — no logic
+  config.py                   Typed config loading
+  models.py                   DataPoint / Auction / HealthReport / MarketSnapshot
+  schedule.py                 DST-correct send math, NYSE and SIFMA calendars
+  health.py                   Degraded-run (fail-closed) decision
+  runner.py                   Orchestration: send / preview / dry-run
+  alert.py                   Failure and degradation alerting
+  render_table.py             Human verification table
+  cli.py                      Argument wiring only, no logic
   data/
-    base.py                  Retries/backoff, HTTP session, RawQuote
-    yahoo.py  fred.py  boc.py  foreign.py  treasury.py     Source clients
-    sanity.py                Level/move plausibility + staleness checks
-    snapshot.py              Orchestrator — the only producer of MarketSnapshot
-  news/search.py             Material news + econ calendar via Claude web search
+    base.py                   Retries and backoff, HTTP session, week-ago lookback
+    yahoo.py                  Yahoo chart API (FX, commodities, indices, vol, BTC)
+    fred.py                   FRED (UST curve, breakevens, IG and HY OAS)
+    boc.py                    Bank of Canada Valet (GoC curve, CORRA, target rate)
+    foreign.py                Bundesbank, Japan MoF, BoE (available, not currently used)
+    treasury.py               TreasuryDirect auction calendar and results
+    sanity.py                 Level, move, staleness, and correlated-pair checks
+    snapshot.py               Orchestrator, the only producer of MarketSnapshot
+  news/search.py              Weekly news and next-week calendar via web search
   generate/
-    generator.py             Narrative generation (model writes prose, never tables)
-    verify.py                Numeric post-validation — the last wall before send
+    generator.py              Narrative generation and the house style prompt
+    verify.py                 Numeric post-validation, the last wall before send
   deliver/
-    recipients.py            Staged tiers: self / test / full
-    email_html.py            Outlook-safe HTML + plain-text alternative
-    resend_client.py         Resend API client (idempotency-keyed)
-tests/                       71 tests, all external calls mocked
+    recipients.py             Staged tiers: self / test / full
+    email_html.py             Outlook-safe HTML and plain-text rendering
+    resend_client.py          Resend API client, idempotency-keyed
+tests/                        81 tests, all external calls mocked
 .github/workflows/
-  daily-brief.yml            The scheduled job
-  fetch-snapshot.yml         Data-layer-only verification run
+  friday-note.yml             The scheduled Friday job
+  fetch-snapshot.yml          Data-layer-only verification run
 ```
 
-**Why the model can't invent a number:** all numeric tables are rendered by
-code directly from the snapshot. The model only writes narrative prose, and
-that prose is then scanned for numerals — any numeral not present in the
-data payload aborts the run before sending.
+**Why the model cannot invent a number.** Every numeric table is rendered by
+code directly from the snapshot. The model only writes prose, and that prose
+is then scanned for numerals. Any numeral not present in the payload aborts
+the run before anything is sent. This has already caught a real error in
+development: narrative text quoting figures from a slightly earlier fetch.
 
----
+## 4. Secrets and variables
 
-## 3. Keys and secrets
-
-Set these in **GitHub → Settings → Secrets and variables → Actions → Secrets**:
+**GitHub → Settings → Secrets and variables → Actions → Secrets:**
 
 | Secret | Required | Where to get it |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | Yes | https://console.anthropic.com → API Keys |
-| `RESEND_API_KEY` | Yes (to send) | https://resend.com → API Keys (free tier: 3,000/mo, 100/day) |
-| `OWNER_EMAIL` | Yes | Your own address. Always the visible `To:` recipient. |
-| `EMAIL_FROM` | Yes | e.g. `Blackleaf Capital <brief@yourdomain.com>` — must be on your verified domain |
-| `EMAIL_REPLY_TO` | Recommended | Where unsubscribe replies go (defaults to `OWNER_EMAIL`) |
+| `ANTHROPIC_API_KEY` | Yes | console.anthropic.com → API Keys |
+| `RESEND_API_KEY` | Yes, to send | resend.com, free tier covers a weekly send comfortably |
+| `OWNER_EMAIL` | Yes | Your address. Always the visible `To:` recipient. |
+| `EMAIL_FROM` | Yes | e.g. `Friday Markets Note <note@yourdomain.com>` |
+| `EMAIL_REPLY_TO` | Recommended | Where removal requests go. Defaults to `OWNER_EMAIL`. |
 | `RECIPIENTS_TEST` | For tier `test` | Comma-separated addresses |
-| `RECIPIENTS_FULL` | For tier `full` | Comma-separated addresses — the real list |
-| `FRED_API_KEY` | Optional | https://fred.stlouisfed.org/docs/api/api_key.html — free; without it a public CSV fallback is used |
+| `RECIPIENTS_FULL` | For tier `full` | Comma-separated addresses, the real list |
+| `FRED_API_KEY` | Optional | fred.stlouisfed.org, free. Without it a public CSV fallback is used. |
 
-And in **Variables** (not secrets — these aren't sensitive):
+**Variables** (not secrets, these are not sensitive):
 
 | Variable | Values | Meaning |
 |---|---|---|
-| `RECIPIENT_TIER` | `self` / `test` / `full` | Who gets it. Leave unset = `self`. |
-| `MODEL` | e.g. `claude-opus-5`, `claude-sonnet-5` | Overrides `config.yaml`. Sonnet is cheaper, Opus is sharper. |
+| `RECIPIENT_TIER` | `self` / `test` / `full` | Who receives it. Unset means `self`. |
+| `MODEL` | e.g. `claude-opus-5`, `claude-sonnet-5` | Overrides `config.yaml`. Sonnet is cheaper. |
 
-Recipient lists live in secrets, so **adding or removing people never needs a commit**.
+Recipient lists live in secrets, so **adding or removing people never needs a
+commit**.
 
----
+## 5. Email domain authentication
 
-## 4. Email domain authentication (do this before tier `test`)
+Required before tier `test`. The code refuses to send beyond `self` from a
+shared test domain, so this is not optional.
 
-The code physically refuses to send beyond `self` from a shared test domain
-(`resend.dev`). You must authenticate a domain you own.
+1. **Own a domain.** Any registrar.
+2. **Resend → Domains → Add Domain.** Resend shows the exact records to add.
+   The values below are the shape; copy the real ones from Resend, they are
+   account-specific.
+3. **Add these DNS records at your registrar:**
 
-1. **Buy/own a domain** (e.g. `blackleafcapital.com`). Any registrar.
-2. **Resend → Domains → Add Domain.** Enter your domain. Resend shows you
-   the exact records to add — the values below are the *shape*; copy the
-   real values from Resend's screen, they are account-specific.
-3. **Add these DNS records at your registrar** (Namecheap/Cloudflare/GoDaddy →
-   DNS management):
-
-   | Type | Name/Host | Value | Notes |
+   | Type | Name | Value | Purpose |
    |---|---|---|---|
-   | `MX` | `send` | `feedback-smtp.us-east-1.amazonses.com` (priority 10) | Bounce handling |
-   | `TXT` | `send` | `v=spf1 include:amazonses.com ~all` | **SPF** — authorizes Resend to send as you |
-   | `TXT` | `resend._domainkey` | `p=MIGfMA0GCSq...` (long key from Resend) | **DKIM** — cryptographically signs your mail |
-   | `TXT` | `_dmarc` | `v=DMARC1; p=none; rua=mailto:you@yourdomain.com` | **DMARC** — start here, tighten later |
+   | `MX` | `send` | `feedback-smtp.us-east-1.amazonses.com`, priority 10 | Bounce handling |
+   | `TXT` | `send` | `v=spf1 include:amazonses.com ~all` | SPF, authorizes Resend to send as you |
+   | `TXT` | `resend._domainkey` | the long `p=MIGf...` key from Resend | DKIM, signs your mail |
+   | `TXT` | `_dmarc` | `v=DMARC1; p=none; rua=mailto:you@yourdomain.com` | DMARC, start here |
 
-4. **Click Verify in Resend.** DNS propagation is usually minutes, up to 48h.
-5. **After ~2 weeks of clean sending**, tighten DMARC from `p=none` to
-   `p=quarantine`, and later `p=reject`. Don't start at `reject` — you'll
+4. **Click Verify in Resend.** Usually minutes, up to 48 hours.
+5. **After about two weeks of clean sending**, tighten DMARC from `p=none` to
+   `p=quarantine`, then later `p=reject`. Do not start at `reject` or you will
    bounce your own mail while things settle.
 
-**Why Resend:** a real free tier that covers a daily send (Postmark's
-100/month can't), first-class domain auth, simple API. SES is cheaper at
-scale but starts sandboxed and is slower to set up.
+Deliverability notes that matter with bank recipients: ramp volume (which the
+tiers do for you), the plain-text alternative part is always generated because
+HTML-only mail is penalized, and recipients sit in BCC so nobody sees the list.
 
-**Deliverability notes that matter with bank recipients:** send volume
-should ramp (self → small test → full, which is what the tiers do), the
-plain-text alternative part is always generated (spam filters penalize
-HTML-only), and recipients are in BCC so nobody sees the list.
-
----
-
-## 5. Run it locally
+## 6. Run it locally
 
 ```bash
 pip install -e . && pip install pytest
-python -m pytest tests/ -q                   # 71 tests, no network needed
+python -m pytest tests/ -q                  # 81 tests, no network needed
 
-python -m marketbrief fetch                  # data layer only, verification table
-python -m marketbrief schedule               # next send instants in UTC (DST check)
-
-# Full pipeline, renders out/email.html, SENDS NOTHING:
-python -m marketbrief run --mode dry-run
-
-# Re-render the email offline from a saved snapshot (no network, no keys):
-python -m marketbrief render --snapshot out/snapshot.json
+python -m marketbrief fetch                 # data layer only, verification table
+python -m marketbrief schedule              # next send instants in UTC (DST check)
+python -m marketbrief run --mode dry-run    # full pipeline, writes out/, sends nothing
+python -m marketbrief render --snapshot out/snapshot.json   # re-render offline
 ```
 
-`dry-run` works with no API keys at all — the narrative becomes a labeled
+`dry-run` works with no API keys at all. The narrative becomes a labeled
 placeholder and the tables are still real fetched data.
 
-Local env vars go in a `.env`-style export or your shell; `.env` is
-gitignored. Never commit a key.
+`.env` is gitignored. Never commit a key.
 
----
+## 7. Run it on GitHub Actions
 
-## 6. Run it on GitHub Actions
+**Actions → Friday Markets Note → Run workflow**, pick a mode:
 
-**Actions → Daily brief → Run workflow**, pick a mode:
+- **`preview`** sends a real note to you only, immediately. This is the
+  on-demand button.
+- **`dry-run`** renders and uploads artifacts, sends nothing.
+- **`send`** is the scheduled path, with the send-day and window checks.
 
-- **`preview`** — full pipeline, emails **you only**, immediately. Use this
-  to check a real brief on demand.
-- **`dry-run`** — renders and uploads artifacts, sends nothing.
-- **`send`** — the scheduled path (window checks + sleep to 6:30 ET). Only
-  useful manually if you're inside the window.
+**Actions → Fetch snapshot (verification)** runs the data layer alone and
+prints the verification table, for checking numbers by hand. Tick
+`publish_snapshot` to also force-push the snapshot to the `data-snapshot`
+branch, which lets you re-render offline with `marketbrief render`.
 
 Every run uploads `email.html`, `email.txt`, `snapshot.json`,
-`verification-table.txt`, and `run-summary.json` as artifacts, retained 30
-days — that's your audit trail when someone questions a number three weeks
-later.
+`verification-table.txt`, and `run-summary.json`, retained 30 days. That is
+your audit trail when someone questions a number weeks later.
 
-**Scheduling:** two crons fire at 09:45 and 10:45 UTC Mon–Fri. Whichever
-lands 0–75 minutes before 6:30am ET proceeds and sleeps to the exact send
-instant; the other exits immediately. This covers EST and EDT with no
-hardcoded offset and absorbs the ~10-20 min GitHub Actions cron delay. If a
-run somehow starts more than 25 minutes past 6:30, it **skips and alerts**
-rather than sending a stale note.
+**Scheduling.** Two crons fire at 20:30 and 21:30 UTC on Fridays. Whichever
+lands within 75 minutes before 17:15 ET proceeds and sleeps to the exact send
+instant; the other exits immediately. That covers EST and EDT with no
+hardcoded offset and absorbs the usual Actions cron delay. A run more than an
+hour late skips and alerts instead of sending.
 
-**Idempotency:** the runner checks for an earlier successful scheduled run
-today via the Actions API, writes a dated marker, sends with a Resend
+**Scheduled workflows only run on the repository's default branch.** This repo
+currently defaults to `claude/market-brief-agent-1xcj0h`, so the cron works as
+is. If you later make another branch the default, merge this code into it or
+the schedule stops firing.
+
+**Idempotency.** The runner checks for an earlier successful scheduled run
+today through the Actions API, writes a dated marker, sends with a Resend
 `Idempotency-Key`, and the workflow uses a `concurrency` group. It will not
 double-send.
 
----
+## 8. Promoting from `self` to `full`
 
-## 7. Promoting from `self` to `full`
+Deliberately manual. In this order:
 
-Deliberately manual. Do it in this order:
+1. **Stay on `self` for two or three Fridays.** Read it as a recipient would.
+   Spot-check numbers against Bloomberg or the source. Confirm arrival time.
+2. **Verify your domain** (section 5). Tier `test` is blocked until you do.
+3. **Set `RECIPIENTS_TEST`** to two or three friendly people and set the
+   `RECIPIENT_TIER` variable to `test`. Run a couple of weeks. Ask them to
+   confirm it renders correctly in Outlook desktop specifically.
+4. **Set `RECIPIENTS_FULL`** and flip `RECIPIENT_TIER` to `full`.
 
-1. **Stay on `self` for a week.** Read it every morning like a recipient.
-   Check numbers against Bloomberg/Yahoo. Confirm arrival time.
-2. **Verify your domain** (section 4). The code blocks tier `test` until
-   you're off the shared domain.
-3. **Set `RECIPIENTS_TEST`** to 2-3 friendly people, set the
-   `RECIPIENT_TIER` variable to `test`. Run a week. Ask them if it renders
-   correctly in Outlook desktop specifically.
-4. **Set `RECIPIENTS_FULL`**, flip `RECIPIENT_TIER` to `full`.
+To pull back, change the variable to `self`. No commit, effective next run.
 
-To pull back at any time, change the variable to `self`. No commit needed,
-takes effect on the next run.
+## 9. What fails closed, and how you hear about it
 
----
-
-## 8. What fails closed, and how you find out
-
-| Condition | Behavior |
+| Condition | Behaviour |
 |---|---|
-| Critical field missing (UST 2Y/10Y, 10Y fut, ES, IG/HY OAS) or >25% of fetches fail | Run marked DEGRADED: tier forced to `self`, you get a `[DEGRADED]`-flagged copy plus an alert |
-| A generated numeral doesn't trace to the payload | Run aborts. **Nothing is sent.** Alert raised. |
+| A critical field is missing (GoC 2Y or 10Y, UST 2Y or 10Y, IG or HY OAS, USD/CAD) or more than 25% of fetches fail | Run marked DEGRADED. Tier forced to `self`, you get a `[DEGRADED]`-flagged copy, alert raised. |
+| A generated numeral does not trace to the payload | Run aborts. Nothing sent. Alert. |
 | Generation errors or the model refuses | Run aborts. Nothing sent. Alert. |
-| Recipient config invalid (bad address, empty list, shared domain) | Run aborts before sending. Alert. |
-| More than 25 min past 6:30 ET | Skips the send, alerts |
-| Any uncaught failure | Workflow opens/updates a GitHub issue labeled `brief-failure` (needs no external secrets), plus an email alert if Resend is configured |
+| Recipient config invalid: bad address, empty list, shared sending domain | Run aborts before sending. Alert. |
+| More than an hour past the target | Skips the send, alerts. |
+| Any uncaught failure | Workflow opens or updates a GitHub issue labeled `brief-failure`, which needs no external secrets, plus an email alert if Resend is configured. |
 
-Sanity checks reject implausible values before they ever reach the model:
-per-class level bounds and max one-day moves (a 40% index move, a negative
-VIX, a 500bp overnight 10Y move), plus staleness thresholds. Rejections are
-**logged and omitted** — never estimated, never carried forward.
+Sanity checks reject implausible values before the model sees them: per-class
+level bounds, maximum one-day and one-week moves, staleness thresholds, and a
+correlated-pair screen. Rejections are logged and omitted, never estimated.
 
----
+## 10. Known source limitations
 
-## 9. Known source limitations (read before trusting)
+Read this before you trust a section.
 
-Free sources, honestly labeled:
-
-- **UST intraday moves** come from CBOT micro yield futures; official H.15
-  closes are fetched separately and both are labeled. In practice the
-  2Y/5Y/30Y micros trade thinly and their Yahoo prints are often days old —
-  the staleness check then drops them, so a reliable *live* overnight bp
-  move is frequently available only for the 10Y. Live 2s10s/5s30s changes
-  appear only when both legs are fresh; otherwise the note uses prior-close
-  spreads. A paid rates feed (CME/ICE) is the real fix.
-- **Bund/JGB/Gilt/GoC** are official prior-close prints only, never live.
-- **IG/HY OAS** (ICE BofA via FRED) publish with a 1–2 day lag — timestamped
-  honestly, wider staleness window.
-- **No free source exists** for: IG/HY new-issue calendar and pricing
-  (needs IGM/Informa or Bloomberg), auction tails (needs 1pm when-issued
-  quotes), TSX/SXF futures, VIX futures, Canadian credit OAS. These are
-  **omitted rather than half-built**. The news pass catches jumbo deals and
-  their financing; a proper DCM new-issue table needs a paid feed.
-- **Econ calendar consensus** comes from web search with source links, not a
-  structured feed. Times are reported when a source states them; consensus
-  is omitted when it can't be verified.
+- **No Canadian credit spreads.** No free Canadian IG or HY option-adjusted
+  spread series exists. The US indices stand in as the read-across and the
+  note says so under the credit table. Real CAD credit spreads need a paid
+  feed.
+- **Credit spreads lag.** ICE BofA OAS via FRED publishes a day or two behind.
+  Timestamped honestly, with a wider staleness window.
+- **Rates are official closes, not intraday.** GoC comes from Bank of Canada
+  benchmarks and UST from H.15. Both are once-a-day prints.
+- **No free source exists** for: Canadian or US new-issue calendars and
+  pricing, auction tails (which need when-issued quotes), Canadian auction
+  results in structured form, TSX futures, or VIX futures. These are omitted
+  rather than half-built. The news pass catches large deals and their
+  financing; a proper DCM table needs IGM or Bloomberg.
+- **Calendar consensus** comes from web search with source links, not a
+  structured feed. Times appear when a source states them; consensus is
+  omitted when it cannot be verified.
 - **Yahoo Finance is unofficial** and can break or throttle. It sits behind
-  `data/yahoo.py` so a paid feed can replace it without touching anything
-  else.
+  `data/yahoo.py` so a paid feed can replace it without touching anything else.
 
----
+## 11. Two things worth knowing
 
-## 10. Two things worth knowing
+**Keep the archive.** Run artifacts hold the exact note and the exact snapshot
+it came from. When a reader questions a number weeks later, that is your
+answer.
 
-**Keep the archive.** Run artifacts hold the exact email and the exact
-snapshot it came from. When an MD questions a number weeks later, that's
-your answer.
-
-**CASL/CAN-SPAM.** You're sending commercial email from Canada. Keep a
-record of how each recipient consented, keep the footer's identification
-and unsubscribe path intact, and honour removals promptly. The footer also
-states this is a personal student publication and not investment advice —
-"Blackleaf Capital" reads like a registered firm to a bank MD, so that line
-matters. Edit `email.sender_name` / `email.sender_affiliation` in
-`config/config.yaml` to match how you want to be identified.
+**CASL.** You are sending commercial email from Canada. Keep a record of how
+each recipient consented, keep the footer's identification and removal path
+intact, and honour removals promptly. The footer also states this is a
+personal publication and not investment advice. Edit `email.sender_name`,
+`email.byline`, and `email.sender_descriptor` in `config/config.yaml` to change
+how you are identified.
