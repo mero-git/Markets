@@ -118,6 +118,25 @@ class TestRender:
         assert "unsubscribe" in html and "unsubscribe" in text
         assert cfg.email.sender_name in html
 
+    def test_byline_sits_under_the_week_ending_line(self, cfg):
+        _, html, text = render_email(cfg, _snapshot(), _narrative(), NEWS, tier="self")
+        assert f"by {cfg.email.byline}" in html
+        assert html.index("WEEK ENDING") < html.index(f"by {cfg.email.byline}")
+        assert f"by {cfg.email.byline}" in text
+
+    def test_footer_states_the_close_date_actually_used(self, cfg):
+        # An after-the-close Friday run may still carry Thursday's official
+        # prints, so the note says which closes it has.
+        _, html, _ = render_email(cfg, _snapshot(), _narrative(), NEWS, tier="self")
+        assert "official closes through" in html
+
+    def test_removal_line_degrades_without_a_contact(self, cfg, monkeypatch):
+        monkeypatch.delenv("EMAIL_REPLY_TO", raising=False)
+        monkeypatch.delenv("OWNER_EMAIL", raising=False)
+        _, html, _ = render_email(cfg, _snapshot(), _narrative(), NEWS, tier="self")
+        assert "reply to this email" in html
+        assert "to .</div>" not in html
+
     def test_empty_news_feed_states_it_rather_than_padding(self, cfg):
         quiet = NewsBundle(items=[], available=False)
         n = _narrative()

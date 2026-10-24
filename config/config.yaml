@@ -8,9 +8,17 @@ timezone: America/New_York
 
 delivery:
   # Local ET wall-clock send time; DST handled via zoneinfo, never a UTC offset.
-  send_time_local: "06:30"
+  # 17:15 ET: US cash equities close at 16:00, the H.15 Treasury release lands
+  # about 16:15, and BoC closing bond yields post about 16:30. Waiting until
+  # 17:15 gives those same-day closes time to publish without pushing the note
+  # into the evening. When a source has not published yet the note falls back
+  # to the latest close it actually has and says so, rather than waiting.
+  send_time_local: "17:15"
   # Weekly note: Fridays only. 0=Mon .. 4=Fri.
   send_weekdays: [4]
+  # How far past the target a delayed runner may still send. An after-close
+  # weekly recap tolerates more slippage than a pre-open note would.
+  max_late_minutes: 60
   holiday_calendar: NYSE
   bond_calendar: SIFMAUS
 
@@ -32,6 +40,7 @@ news:
 
 email:
   title: "Friday Markets Note"
+  byline: "Mero"
   sender_name: "Mero Obuwoma"
   sender_descriptor: "Weekly markets recap. Personal publication, not investment advice."
 

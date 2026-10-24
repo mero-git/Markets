@@ -1,11 +1,11 @@
-"""Material-news and day-ahead gathering via the Anthropic web search tool.
+"""Material-news and week-ahead gathering via the Anthropic web search tool.
 
 Design rationale (vs the alternatives):
 - RSS aggregation is free but the reliable wires (Reuters, Bloomberg) no
   longer publish usable public feeds, so RSS-only skews to second-tier
   sources and needs constant curation.
-- News API free tiers (e.g. NewsAPI) delay content by 24h — useless at
-  6:30am.
+- News API free tiers (for example NewsAPI) delay content by 24h, which is
+  useless for a same-day recap.
 - Anthropic web search costs cents per run, returns current wire coverage,
   and every claim carries a source URL we can print. That is the tradeoff
   winner for this note.
@@ -69,32 +69,39 @@ class NewsBundle:
         }
 
 
-_SEARCH_SYSTEM = """You are the overnight news desk for a professional fixed-income \
-morning note read by trading MDs before their 7am call. Use web search to find what \
-actually happened overnight and what is scheduled today. Report ONLY facts you found \
-in sources, with the source for each. Never estimate or invent a number. If you \
-cannot verify an item, leave it out. Materiality bar: include an item only if a \
-rates or credit trading MD would change what they do today because of it — \
-prioritise anything moving rates or credit, central bank actions/commentary, large \
-M&A and its financing, ratings actions, bankruptcy/distress, major earnings \
-surprises, and geopolitics with a commodity or rates transmission channel. \
-A quiet night is a perfectly good answer: return an empty list rather than noise."""
+_SEARCH_SYSTEM = """You are the news desk for a weekly markets note read by \
+Canadian fixed-income professionals. Use web search to find what actually \
+happened this week and what is scheduled next week. Report ONLY facts you \
+found in sources, with the source for each. Never estimate or invent a \
+number. If you cannot verify an item, leave it out.
 
-_SEARCH_PROMPT = """Today is {trading_date} (America/New_York). It is early morning \
-before the US open. Search for:
-1. Material overnight market/credit/macro news since yesterday's US close (max {max_items} items).
-2. Today's US and Canadian economic data releases with scheduled times in ET and \
-surveyed consensus where a source states it.
-3. Fed, Bank of Canada, and ECB speakers scheduled today, with times in ET.
+Materiality bar: include an item only if a CAD rates or credit trader would \
+position differently because of it. Priority order: Bank of Canada decisions \
+and commentary, Canadian data that moves GoC or the CAD curve, Federal \
+Reserve decisions and commentary, Canadian issuers and credit events, \
+ratings actions, large M&A and the financing attached to it, and \
+geopolitics with a commodity or rates transmission channel into Canada.
+
+A quiet week is a perfectly good answer. Return an empty list rather than \
+padding it with noise."""
+
+_SEARCH_PROMPT = """The week ends {trading_date} (America/New_York). Search for:
+1. The material market, credit, and macro news of this week, Canada first \
+(maximum {max_items} items).
+2. Canadian and US economic releases scheduled for NEXT week, with the date, \
+the scheduled time in ET, and surveyed consensus where a source states it.
+3. Bank of Canada and Federal Reserve speakers or decisions scheduled next \
+week, with dates and times in ET.
 
 Then output ONLY a JSON object, no other text, in this exact shape:
 {{
   "items": [{{"headline": "...", "detail": "one or two sentences, numbers only if stated by the source", "source_name": "Reuters", "url": "https://..."}}],
-  "calendar": [{{"time_et": "08:30", "item": "US CPI m/m", "consensus": "0.3%" }}],
-  "cb_speakers": [{{"time_et": "09:15", "item": "Fed's Waller on economic outlook"}}]
+  "calendar": [{{"time_et": "Tue 08:30", "item": "Canada CPI", "consensus": "0.3%"}}],
+  "cb_speakers": [{{"time_et": "Wed 13:45", "item": "BoC rate decision"}}]
 }}
-Use null for a consensus you could not verify. Every news item MUST have a real \
-source url. Times must be ET in 24h HH:MM."""
+Use null for a consensus you could not verify. Every news item MUST have a \
+real source url. In time_et, give the weekday then the 24h time, for example \
+"Tue 08:30"."""
 
 
 def _extract_json(text: str) -> dict[str, Any]:

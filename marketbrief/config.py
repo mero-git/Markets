@@ -56,6 +56,7 @@ class DeliveryConfig:
     send_weekdays: tuple[int, ...]
     holiday_calendar: str
     bond_calendar: str
+    max_late_minutes: float = 60.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +86,7 @@ class NewsConfig:
 @dataclass(frozen=True, slots=True)
 class EmailConfig:
     title: str
+    byline: str
     sender_name: str
     sender_descriptor: str
 
@@ -142,6 +144,7 @@ def load_config(path: Path | str = DEFAULT_CONFIG_PATH) -> Config:
             send_weekdays=tuple(raw["delivery"]["send_weekdays"]),
             holiday_calendar=raw["delivery"]["holiday_calendar"],
             bond_calendar=raw["delivery"]["bond_calendar"],
+            max_late_minutes=float(raw["delivery"].get("max_late_minutes", 60)),
         ),
         run=RunConfig(**raw["run"]),
         generation=GenerationConfig(**raw["generation"]),

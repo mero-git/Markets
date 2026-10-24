@@ -1,7 +1,7 @@
 """Scheduling: delivery-time math (DST-correct) and market-holiday logic.
 
 The send time is a local America/New_York wall-clock time resolved through
-zoneinfo — never a hardcoded UTC offset — so 06:30 ET stays 06:30 ET across
+zoneinfo, never a hardcoded UTC offset, so 17:15 ET stays 17:15 ET across
 the March and November transitions. Holidays come from exchange calendars
 (pandas-market-calendars), not a hand-maintained list.
 """
@@ -71,17 +71,19 @@ def seconds_until_delivery(cfg: Config, now_utc: datetime) -> float:
 
 
 def should_run(cfg: Config, now_utc: datetime, *, max_early_minutes: float = 75.0,
-               max_late_minutes: float = 25.0) -> tuple[bool, str]:
+               max_late_minutes: float | None = None) -> tuple[bool, str]:
     """Decide whether this invocation should proceed toward a send.
 
-    Designed for two GitHub Actions crons an hour apart (so one lands
-    before 6:30 ET under both EST and EDT): the invocation inside
-    [send - max_early_minutes, send + max_late_minutes] proceeds (sleeping
-    until the send time); anything outside exits cleanly. The 75-minute
-    early bound means exactly one of the two crons qualifies in either DST
-    regime, and the late bound keeps a badly delayed runner from sending a
-    mid-morning note that would be worse than none.
+    Designed for two GitHub Actions crons an hour apart, so exactly one of
+    them lands inside the window under both EST and EDT. The invocation
+    inside [send - max_early_minutes, send + max_late_minutes] proceeds,
+    sleeping until the send time; anything outside exits cleanly. The
+    75-minute early bound is what makes only one cron qualify per season,
+    and the late bound stops a badly delayed runner from sending a weekly
+    recap late in the evening.
     """
+    if max_late_minutes is None:
+        max_late_minutes = cfg.delivery.max_late_minutes
     d = local_trading_date(cfg, now_utc)
     if not is_send_day(cfg, d):
         return False, f"{d} is not a trading day"
@@ -89,7 +91,8 @@ def should_run(cfg: Config, now_utc: datetime, *, max_early_minutes: float = 75.
     if delta > max_early_minutes * 60:
         return False, f"too early: {delta / 60:.0f}min before send time"
     if delta < -max_late_minutes * 60:
-        return False, f"too late: {-delta / 60:.0f}min past send time — skipping rather than sending late"
+        return False, (f"too late: {-delta / 60:.0f}min past send time, "
+                       "skipping rather than sending late")
     return True, f"in window: {delta / 60:.0f}min before send time"
 
 

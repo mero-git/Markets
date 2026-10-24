@@ -13,27 +13,29 @@ from marketbrief.schedule import (
 
 
 class TestDST:
-    def test_winter_send_is_1130_utc(self, cfg):
-        # Early March 2026, before DST starts (Mar 8): 06:30 EST == 11:30 UTC.
-        assert delivery_time_utc(cfg, date(2026, 3, 6)).hour == 11
-        assert delivery_time_utc(cfg, date(2026, 3, 6)).minute == 30
+    """17:15 ET must stay 17:15 ET on both sides of every transition."""
 
-    def test_summer_send_is_1030_utc(self, cfg):
-        # After the March transition: 06:30 EDT == 10:30 UTC.
-        assert delivery_time_utc(cfg, date(2026, 3, 9)).hour == 10
+    def test_winter_send_is_2215_utc(self, cfg):
+        # Early March 2026, before DST starts on the 8th: 17:15 EST = 22:15 UTC.
+        t = delivery_time_utc(cfg, date(2026, 3, 6))
+        assert (t.hour, t.minute) == (22, 15)
+
+    def test_summer_send_is_2115_utc(self, cfg):
+        # After the March transition: 17:15 EDT = 21:15 UTC.
+        assert delivery_time_utc(cfg, date(2026, 3, 13)).hour == 21
 
     def test_november_fallback(self, cfg):
-        # DST ends Sun Nov 1 2026: Friday before is EDT, Monday after is EST.
-        assert delivery_time_utc(cfg, date(2026, 10, 30)).hour == 10
-        assert delivery_time_utc(cfg, date(2026, 11, 2)).hour == 11
+        # DST ends Sun Nov 1 2026. The Friday before is EDT, the one after EST.
+        assert delivery_time_utc(cfg, date(2026, 10, 30)).hour == 21
+        assert delivery_time_utc(cfg, date(2026, 11, 6)).hour == 22
 
     def test_no_drift_across_the_year(self, cfg):
-        # The local wall-clock time is 06:30 ET on every send day of 2026.
         from zoneinfo import ZoneInfo
         et = ZoneInfo(cfg.timezone)
-        for d in (date(2026, 1, 15), date(2026, 4, 15), date(2026, 7, 15), date(2026, 12, 15)):
+        for d in (date(2026, 1, 16), date(2026, 4, 17), date(2026, 7, 17),
+                  date(2026, 12, 18)):
             local = delivery_time_utc(cfg, d).astimezone(et)
-            assert (local.hour, local.minute) == (6, 30)
+            assert (local.hour, local.minute) == (17, 15)
 
 
 class TestHolidays:
@@ -68,32 +70,37 @@ class TestHolidays:
 
 class TestRunWindow:
     def test_in_window_runs(self, cfg):
-        # 09:45 UTC on an EDT Friday is 05:45 ET, 45 minutes before the send.
-        ok, why = should_run(cfg, datetime(2026, 10, 23, 9, 45, tzinfo=timezone.utc))
+        # 20:30 UTC on an EDT Friday is 16:30 ET, 45 minutes before the send.
+        ok, why = should_run(cfg, datetime(2026, 10, 23, 20, 30, tzinfo=timezone.utc))
         assert ok, why
 
     def test_too_early_exits(self, cfg):
-        ok, why = should_run(cfg, datetime(2026, 10, 23, 8, 30, tzinfo=timezone.utc))
+        ok, why = should_run(cfg, datetime(2026, 10, 23, 19, 30, tzinfo=timezone.utc))
         assert not ok and "too early" in why
 
     def test_too_late_skips_rather_than_sending(self, cfg):
-        # 11:15 UTC EDT is 07:15 ET, 45 minutes past. Late is worse than absent.
-        ok, why = should_run(cfg, datetime(2026, 10, 23, 11, 15, tzinfo=timezone.utc))
+        # 75 minutes past the target. A recap that lands in the evening is
+        # worse than one that does not land at all.
+        ok, why = should_run(cfg, datetime(2026, 10, 23, 22, 30, tzinfo=timezone.utc))
         assert not ok and "too late" in why
 
+    def test_modest_delay_still_sends(self, cfg):
+        # Actions cron routinely fires late. 15 minutes past is still fine.
+        assert should_run(cfg, datetime(2026, 10, 23, 21, 30, tzinfo=timezone.utc))[0]
+
     def test_non_send_weekday_exits(self, cfg):
-        ok, why = should_run(cfg, datetime(2026, 10, 22, 9, 45, tzinfo=timezone.utc))
+        ok, why = should_run(cfg, datetime(2026, 10, 22, 20, 30, tzinfo=timezone.utc))
         assert not ok and "not a trading day" in why
 
     def test_good_friday_exits(self, cfg):
-        ok, why = should_run(cfg, datetime(2026, 4, 3, 9, 45, tzinfo=timezone.utc))
+        ok, why = should_run(cfg, datetime(2026, 4, 3, 20, 30, tzinfo=timezone.utc))
         assert not ok and "not a trading day" in why
 
     def test_exactly_one_cron_qualifies_each_season(self, cfg):
-        # Crons fire 09:45 and 10:45 UTC. Summer (EDT, send 10:30 UTC): 09:45
-        # is 45min early and runs. Winter (EST, send 11:30 UTC): 09:45 is
-        # 105min early and exits, 10:45 is 45min early and runs.
-        assert should_run(cfg, datetime(2026, 7, 24, 9, 45, tzinfo=timezone.utc))[0]
-        assert not should_run(cfg, datetime(2026, 1, 23, 9, 45, tzinfo=timezone.utc))[0]
-        assert should_run(cfg, datetime(2026, 1, 23, 10, 45, tzinfo=timezone.utc))[0]
-        assert not should_run(cfg, datetime(2026, 1, 23, 13, 0, tzinfo=timezone.utc))[0]
+        # Crons fire 20:30 and 21:30 UTC. Summer (EDT, send 21:15 UTC): 20:30
+        # is 45min early and runs. Winter (EST, send 22:15 UTC): 20:30 is
+        # 105min early and exits, 21:30 is 45min early and runs.
+        assert should_run(cfg, datetime(2026, 7, 24, 20, 30, tzinfo=timezone.utc))[0]
+        assert not should_run(cfg, datetime(2026, 1, 23, 20, 30, tzinfo=timezone.utc))[0]
+        assert should_run(cfg, datetime(2026, 1, 23, 21, 30, tzinfo=timezone.utc))[0]
+        assert not should_run(cfg, datetime(2026, 1, 23, 23, 45, tzinfo=timezone.utc))[0]

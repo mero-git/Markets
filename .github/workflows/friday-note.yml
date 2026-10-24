@@ -1,23 +1,27 @@
-# Daily market brief — 6:30am America/New_York, Mon–Fri.
+# Friday Markets Note, 17:15 America/New_York, Fridays only, after the close.
 #
-# Scheduling design: GitHub Actions cron can fire late and cron is UTC-only,
-# so two crons fire an hour apart (09:45 & 10:45 UTC) and the runner decides:
-# the firing that lands 0–75 minutes before 6:30 ET proceeds and sleeps to
-# the exact send instant; the other exits immediately. That covers both EST
-# and EDT with no hardcoded offset, absorbs typical Actions delay, and the
-# runner refuses to send more than 25 minutes late. Idempotency: the runner
+# Why 17:15: US cash equities close at 16:00, the H.15 Treasury release lands
+# about 16:15, and BoC closing bond yields post about 16:30. Waiting until
+# 17:15 gives the same-day official closes time to publish.
+#
+# Scheduling design: GitHub Actions cron fires late under load and is UTC
+# only, so two crons fire an hour apart (20:30 and 21:30 UTC) and the runner
+# decides. The firing that lands 0 to 75 minutes before 17:15 ET proceeds and
+# sleeps to the exact send instant; the other exits immediately. That covers
+# EST and EDT with no hardcoded offset, absorbs typical Actions delay, and the
+# runner refuses to send more than an hour late. Idempotency: the runner
 # checks for an earlier successful scheduled run today (plus a Resend
 # Idempotency-Key), and this concurrency group serializes overlapping runs.
 name: Friday Markets Note
 
 on:
   schedule:
-    - cron: "45 9 * * 5"     # in-window during EDT (05:45 ET)
-    - cron: "45 10 * * 5"    # in-window during EST (05:45 ET); EDT late-retry
+    - cron: "30 20 * * 5"    # 16:30 ET during EDT, 45min before the 17:15 send
+    - cron: "30 21 * * 5"    # 16:30 ET during EST; doubles as the EDT retry
   workflow_dispatch:
     inputs:
       mode:
-        description: "preview = email me only, now; dry-run = render only; send = staged scheduled send"
+        description: "preview = email me only, now; dry-run = render only; send = scheduled staged send"
         type: choice
         default: preview
         options: [preview, dry-run, send]

@@ -162,6 +162,17 @@ def _note_line(text: str) -> str:
             f'{html.escape(text)}</div></td></tr>')
 
 
+def _official_close_through(snapshot: MarketSnapshot) -> str | None:
+    """Latest observation date across the official daily series.
+
+    Rates and credit come from once-a-day publications. On a Friday
+    after-the-close run those may still carry Thursday's print, so the note
+    states the date it actually has rather than implying Friday data.
+    """
+    dates = [p.asof_date for p in snapshot.points if p.asof_date]
+    return max(dates) if dates else None
+
+
 def _ordered(snapshot: MarketSnapshot, section: str) -> list[DataPoint]:
     pts = [p for p in snapshot.points if p.section == section]
     order = _ORDER.get(section)
@@ -202,7 +213,8 @@ def render_email(cfg: Config, snapshot: MarketSnapshot, narrative: BriefNarrativ
         subject = "[DEGRADED] " + subject
 
     parts: list[str] = []
-    text: list[str] = [f"{cfg.email.title.upper()}", f"Week ending {nice_date}", ""]
+    text: list[str] = [f"{cfg.email.title.upper()}", f"Week ending {nice_date}",
+                       f"by {cfg.email.byline}", ""]
 
     # Masthead
     parts.append(
@@ -215,7 +227,9 @@ def render_email(cfg: Config, snapshot: MarketSnapshot, narrative: BriefNarrativ
         f'letter-spacing:-0.3px;">{html.escape(cfg.email.title)}</div>'
         f'<div style="{SANS}font-size:11px;color:{MUTED};padding-top:6px;'
         'letter-spacing:0.5px;">WEEK ENDING ' +
-        html.escape(nice_date.upper()) + "</div></td></tr>")
+        html.escape(nice_date.upper()) + "</div>"
+        f'<div style="{SANS}font-size:10px;color:{MUTED};padding-top:3px;">'
+        f'by {html.escape(cfg.email.byline)}</div></td></tr>')
 
     if snapshot.health.degraded:
         parts.append(
@@ -366,11 +380,16 @@ def render_email(cfg: Config, snapshot: MarketSnapshot, narrative: BriefNarrativ
         if contact else
         "To be removed from this list, reply to this email with "
         "\u201cunsubscribe\u201d.")
+    through = _official_close_through(snapshot)
+    through_line = (
+        f"Rates and credit reflect official closes through {through}. "
+        if through else "")
     footer = (
         f"{cfg.email.title}. {cfg.email.sender_name}. {cfg.email.sender_descriptor} "
-        "Weekly moves are close to close against the prior Friday. Sources: FRED, "
-        "Bank of Canada, TreasuryDirect, Yahoo Finance. Credit spreads publish with "
-        "a lag and are the latest available print. "
+        "Weekly moves are close to close over one trading week. "
+        + through_line +
+        "Sources: FRED, Bank of Canada, TreasuryDirect, Yahoo Finance. Credit "
+        "spreads publish with a lag and are the latest available print. "
         + removal)
     parts.append(
         f'<tr><td style="{_PAD}padding-top:26px;padding-bottom:28px;">'

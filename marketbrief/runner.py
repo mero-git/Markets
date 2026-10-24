@@ -1,8 +1,9 @@
 """Run orchestration — the only place the pipeline stages are wired together.
 
 Modes:
-- ``send``     scheduled path: trading-day + delivery-window checks, sleep to
-               the 6:30 ET target, idempotency guard, staged recipients.
+- ``send``     scheduled path: send-day and delivery-window checks, sleep to
+               the 17:15 ET Friday target, idempotency guard, staged
+               recipients.
 - ``preview``  full pipeline, sent to the owner only, immediately.
 - ``dry-run``  full pipeline, writes out/email.html + out/email.txt, sends
                nothing (works without any API keys — narrative is a labeled
@@ -13,7 +14,7 @@ Fail-closed invariants:
   copy plus an alert, so the failure is visible without embarrassing anyone.
 - generation or numeric-verification failure -> nothing is sent at all;
   alert only. A missing email is recoverable; a wrong one is not.
-- >25 minutes past 6:30 ET -> skip and alert rather than send a stale note.
+- more than an hour past the target -> skip and alert rather than send late.
 """
 
 from __future__ import annotations
