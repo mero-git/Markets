@@ -168,9 +168,13 @@ def _official_close_through(snapshot: MarketSnapshot) -> str | None:
     Rates and credit come from once-a-day publications. On a Friday
     after-the-close run those may still carry Thursday's print, so the note
     states the date it actually has rather than implying Friday data.
+
+    The earliest of those dates is used, not the latest. One series running
+    ahead of the rest must not let the note claim coverage the curve itself
+    does not have, and understating is the safe direction to err.
     """
     dates = [p.asof_date for p in snapshot.points if p.asof_date]
-    return max(dates) if dates else None
+    return min(dates) if dates else None
 
 
 def _ordered(snapshot: MarketSnapshot, section: str) -> list[DataPoint]:
