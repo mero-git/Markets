@@ -1,0 +1,68 @@
+MARKET SNAPSHOT — trading date 2026-10-23, generated 2026-10-23 20:58:19 ET
+NYSE open today: True   SIFMA (bond mkt) open today: True
+
+── CA RATES ────────────────────────────────────────────────────────────────────────────────────────────
+instrument                         value      1 week       1 day  as of               week ago    source                    note
+BoC target rate                   2.250%      +0.0bp      +0.0bp  2026-10-22 (obs date)2026-10-16  boc:V39079                Bank of Canada target for the overnight rate
+CORRA                             2.250%      -1.0bp      +0.0bp  2026-10-22 (obs date)2026-10-16  boc:AVG.INTWO             Canadian Overnight Repo Rate Average
+GoC 2Y                            3.220%      +1.0bp     -10.0bp  2026-10-22 (obs date)2026-10-16  boc:BD.CDN.2YR.DQ.YLD     BoC benchmark close
+GoC 5Y                            3.500%      -4.0bp     -12.0bp  2026-10-22 (obs date)2026-10-16  boc:BD.CDN.5YR.DQ.YLD     BoC benchmark close
+GoC 10Y                           3.780%      -6.0bp     -12.0bp  2026-10-22 (obs date)2026-10-16  boc:BD.CDN.10YR.DQ.YLD    BoC benchmark close
+GoC long                          4.100%      -8.0bp      -9.0bp  2026-10-22 (obs date)2026-10-16  boc:BD.CDN.LONG.DQ.YLD    BoC long-term benchmark close
+GoC 2s10s                         56.0bp      -7.0bp      -2.0bp  2026-10-22 (obs date)2026-10-16  derived:goc_10y-goc_2y    BoC benchmark closes
+GoC 5s30s                         60.0bp      -4.0bp      +3.0bp  2026-10-22 (obs date)2026-10-16  derived:goc_30y-goc_5y    BoC benchmark closes
+Canada-US 2Y                    -143.0bp     +10.0bp      +6.0bp  2026-10-22 (obs date)2026-10-16  derived:goc_2y-ust_2y     BoC benchmark vs H.15
+Canada-US 10Y                   -118.0bp      +7.0bp      +5.0bp  2026-10-22 (obs date)2026-10-16  derived:goc_10y-ust_10y   BoC benchmark vs H.15
+
+── US RATES ────────────────────────────────────────────────────────────────────────────────────────────
+instrument                         value      1 week       1 day  as of               week ago    source                    note
+UST 2Y                            4.650%      -9.0bp     -16.0bp  2026-10-22 (obs date)2026-10-16  fred:DGS2                 H.15 close
+UST 5Y                            4.780%     -11.0bp     -17.0bp  2026-10-22 (obs date)2026-10-16  fred:DGS5                 H.15 close
+UST 10Y                           4.960%     -13.0bp     -17.0bp  2026-10-22 (obs date)2026-10-16  fred:DGS10                H.15 close
+UST 30Y                           5.290%     -14.0bp     -13.0bp  2026-10-22 (obs date)2026-10-16  fred:DGS30                H.15 close
+10Y breakeven                     2.340%      -1.0bp      +2.0bp  2026-10-23 (obs date)2026-10-16  fred:T10YIE               H.15-derived close
+UST 2s10s                         31.0bp      -4.0bp      -1.0bp  2026-10-22 (obs date)2026-10-16  derived:ust_10y-ust_2y    H.15 closes
+UST 5s30s                         51.0bp      -3.0bp      +4.0bp  2026-10-22 (obs date)2026-10-16  derived:ust_30y-ust_5y    H.15 closes
+
+── CREDIT ──────────────────────────────────────────────────────────────────────────────────────────────
+instrument                         value      1 week       1 day  as of               week ago    source                    note
+US IG OAS                         89.0bp      +4.0bp      +1.0bp  2026-10-22 (obs date)2026-10-16  fred:BAMLC0A0CM           ICE BofA index, publishes with a 1-2 day lag
+US HY OAS                        340.0bp      +9.0bp     +13.0bp  2026-10-22 (obs date)2026-10-16  fred:BAMLH0A0HYM2         ICE BofA index, publishes with a 1-2 day lag
+
+── FX ──────────────────────────────────────────────────────────────────────────────────────────────────
+instrument                         value      1 week       1 day  as of               week ago    source                    note
+USD/CAD                              1.4      -1.35%      -0.00%  10-23 17:29 ET      2026-10-15  yahoo:CAD=X               
+DXY                                101.8      -0.09%      +0.14%  10-23 16:59 ET      2026-10-16  yahoo:DX-Y.NYB            
+EUR/USD                             1.12      -0.08%      -0.16%  10-23 17:29 ET      2026-10-15  yahoo:EURUSD=X            
+USD/JPY                            156.8      -0.84%      +0.20%  10-23 16:59 ET      2026-10-15  yahoo:JPY=X               
+
+── COMMODITIES ─────────────────────────────────────────────────────────────────────────────────────────
+instrument                         value      1 week       1 day  as of               week ago    source                    note
+WTI                                103.4      +2.00%      +3.99%  10-23 16:59 ET      2026-10-16  yahoo:CL=F                
+Brent                              111.7      +1.64%      -1.33%  10-23 16:59 ET      2026-10-16  yahoo:BZ=F                
+Nat gas                            3.047      -2.21%      +8.98%  10-23 17:00 ET      2026-10-16  yahoo:NG=F                
+Gold                            4,010.00      -4.09%      -1.24%  10-23 16:59 ET      2026-10-16  yahoo:GC=F                
+Copper                             6.497      -0.52%      +2.11%  10-23 16:59 ET      2026-10-16  yahoo:HG=F                
+
+── EQUITIES ────────────────────────────────────────────────────────────────────────────────────────────
+instrument                         value      1 week       1 day  as of               week ago    source                    note
+S&P/TSX Composite              35,788.18      -1.07%      -0.52%  10-23 16:20 ET      2026-10-16  yahoo:^GSPTSE             Index close
+S&P 500                         7,623.68      -0.47%      -0.52%  10-23 16:38 ET      2026-10-16  yahoo:^GSPC               Index close
+Nasdaq Composite               25,955.34      -0.71%      -0.21%  10-23 17:15 ET      2026-10-16  yahoo:^IXIC               Index close
+Dow Jones                      52,215.16      +0.41%      -1.23%  10-23 16:42 ET      2026-10-16  yahoo:^DJI                Index close
+
+── VOLATILITY ──────────────────────────────────────────────────────────────────────────────────────────
+instrument                         value      1 week       1 day  as of               week ago    source                    note
+MOVE                               103.3      +2.19%      -3.30%  10-23 16:17 ET      2026-10-16  yahoo:^MOVE               Rates volatility, prior close
+VIX                                19.45      -2.70%      +2.21%  10-23 16:15 ET      2026-10-16  yahoo:^VIX                Prior close
+
+── CRYPTO ──────────────────────────────────────────────────────────────────────────────────────────────
+instrument                         value      1 week       1 day  as of               week ago    source                    note
+Bitcoin                        80,558.24      -1.78%      -0.93%  10-23 20:58 ET      2026-10-18  yahoo:BTC-USD             
+
+── TREASURY SUPPLY ─────────────────────────────────────────────────────────────────────────────────────
+Auctions today: none in TreasuryDirect feed
+Recent results: none in window
+
+── HEALTH: HEALTHY
+   attempted=29 fetched=29 failed=0 rejected=0 failure_ratio=0%
